@@ -25,6 +25,10 @@ import (
 
 // Read packet to buffer 'data'
 func (mc *mysqlConn) readPacket() ([]byte, error) {
+	type timeoutErr interface {
+		Timeout() bool
+	}
+
 	var prevData []byte
 	for {
 		// read packet header
@@ -32,6 +36,9 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 		if err != nil {
 			errLog.Print(err)
 			mc.Close()
+			if t, ok := err.(timeoutErr); ok && t.Timeout() {
+				return nil, err
+			}
 			return nil, driver.ErrBadConn
 		}
 
@@ -65,6 +72,9 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 		if err != nil {
 			errLog.Print(err)
 			mc.Close()
+			if t, ok := err.(timeoutErr); ok && t.Timeout() {
+				return nil, err
+			}
 			return nil, driver.ErrBadConn
 		}
 
