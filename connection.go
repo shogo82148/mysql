@@ -14,8 +14,22 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+type mysqlContext struct {
+	//a copy of context.Context from Go 1.7 and later.
+	ctx interface {
+		Deadline() (deadline time.Time, ok bool)
+		Done() <-chan struct{}
+		Err() error
+		Value(key interface{}) interface{}
+	}
+
+	// done notifies the query has succeeded
+	done <-chan struct{}
+}
 
 type mysqlConn struct {
 	buf              buffer
@@ -31,6 +45,9 @@ type mysqlConn struct {
 	sequence         uint8
 	parseTime        bool
 	strict           bool
+	closeOnce        sync.Once
+	chCtx            chan<- mysqlContext
+	closed           chan struct{}
 }
 
 // Handles parameters set in DSN after the connection is established
@@ -64,7 +81,7 @@ func (mc *mysqlConn) handleParams() (err error) {
 }
 
 func (mc *mysqlConn) Begin() (driver.Tx, error) {
-	if mc.netConn == nil {
+	if mc.isClosed() {
 		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
@@ -78,7 +95,7 @@ func (mc *mysqlConn) Begin() (driver.Tx, error) {
 
 func (mc *mysqlConn) Close() (err error) {
 	// Makes Close idempotent
-	if mc.netConn != nil {
+	if mc.isClosed() {
 		err = mc.writeCommandPacket(comQuit)
 	}
 
@@ -93,18 +110,30 @@ func (mc *mysqlConn) Close() (err error) {
 // closed the network connection.
 func (mc *mysqlConn) cleanup() {
 	// Makes cleanup idempotent
-	if mc.netConn != nil {
+	mc.closeOnce.Do(func() {
+		close(mc.closed)
+		mc.cfg = nil
+		mc.buf.nc = nil
+		if mc.netConn == nil {
+			return
+		}
 		if err := mc.netConn.Close(); err != nil {
 			errLog.Print(err)
 		}
-		mc.netConn = nil
+	})
+}
+
+func (mc *mysqlConn) isClosed() bool {
+	select {
+	default:
+	case <-mc.closed:
+		return true
 	}
-	mc.cfg = nil
-	mc.buf.nc = nil
+	return false
 }
 
 func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
-	if mc.netConn == nil {
+	if mc.isClosed() {
 		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
@@ -258,7 +287,7 @@ func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (strin
 }
 
 func (mc *mysqlConn) Exec(query string, args []driver.Value) (driver.Result, error) {
-	if mc.netConn == nil {
+	if mc.isClosed() {
 		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
@@ -315,7 +344,7 @@ func (mc *mysqlConn) exec(query string) error {
 }
 
 func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	if mc.netConn == nil {
+	if mc.isClosed() {
 		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}

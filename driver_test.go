@@ -1950,3 +1950,11 @@ func TestTimeout(t *testing.T) {
 		}
 	})
 }
+
+func TestPing(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		if err := dbt.db.Ping(); err != nil {
+			dbt.fail("Ping", "Ping", err)
+		}
+	})
+}
