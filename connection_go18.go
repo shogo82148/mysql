@@ -25,20 +25,14 @@ func (mc *mysqlConn) Ping(ctx context.Context) error {
 
 	err = mc.writeCommandPacket(comPing)
 	if err != nil {
-		errLog.Print(err)
-	} else {
-		_, err = mc.readResultOK()
-		if err != nil {
-			errLog.Print(err)
-		}
+		return err
+	}
+	_, err = mc.readResultOK()
+	if err != nil {
+		return err
 	}
 
-	select {
-	default:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	return err
+	return nil
 }
 
 // BeginTx implements driver.ConnBeginTx interface
