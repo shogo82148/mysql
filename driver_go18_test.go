@@ -218,13 +218,16 @@ func TestContextCancelExec(t *testing.T) {
 			t.Errorf("too long execution time: %s", d)
 		}
 
+		// Wait for the INSERT query has done.
+		time.Sleep(2 * time.Second)
+
 		// Check how many times the query is executed.
 		var v int
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 0 {
-			dbt.Errorf("expected val to be 0, got %d", v)
+		if v != 1 {
+			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 
 		// Context is already canceled, so error should come before execution.
@@ -238,8 +241,8 @@ func TestContextCancelExec(t *testing.T) {
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 0 {
-			dbt.Errorf("expected val to be 0, got %d", v)
+		if v != 1 {
+			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 	})
 }
@@ -261,13 +264,16 @@ func TestContextCancelQuery(t *testing.T) {
 			t.Errorf("too long execution time: %s", d)
 		}
 
+		// Wait for the INSERT query has done.
+		time.Sleep(2 * time.Second)
+
 		// Check how many times the query is executed.
 		var v int
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 0 {
-			dbt.Errorf("expected val to be 0, got %d", v)
+		if v != 1 {
+			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 
 		// Context is already canceled, so error should come before execution.
@@ -279,8 +285,8 @@ func TestContextCancelQuery(t *testing.T) {
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 0 {
-			dbt.Errorf("expected val to be 0, got %d", v)
+		if v != 1 {
+			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 	})
 }
@@ -316,13 +322,16 @@ func TestContextCancelStmtExec(t *testing.T) {
 			t.Errorf("too long execution time: %s", d)
 		}
 
+		// Wait for the INSERT query has done.
+		time.Sleep(2 * time.Second)
+
 		// Check how many times the query is executed.
 		var v int
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 0 {
-			dbt.Errorf("expected val to be 0, got %d", v)
+		if v != 1 {
+			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 	})
 }
@@ -348,13 +357,16 @@ func TestContextCancelStmtQuery(t *testing.T) {
 			t.Errorf("too long execution time: %s", d)
 		}
 
+		// Wait for the INSERT query has done.
+		time.Sleep(2 * time.Second)
+
 		// Check how many times the query is executed.
 		var v int
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 0 {
-			dbt.Errorf("expected val to be 0, got %d", v)
+		if v != 1 {
+			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 	})
 }
