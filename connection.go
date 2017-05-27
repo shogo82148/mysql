@@ -27,8 +27,8 @@ type mysqlContext struct {
 		Value(key interface{}) interface{}
 	}
 
-	// done notifies the query has succeeded
-	done <-chan struct{}
+	// finished notifies the query has succeeded
+	finished <-chan struct{}
 }
 
 type mysqlConn struct {
@@ -48,6 +48,7 @@ type mysqlConn struct {
 	closeOnce        sync.Once
 	chCtx            chan<- mysqlContext
 	closed           chan struct{}
+	finished         chan<- struct{}
 }
 
 // Handles parameters set in DSN after the connection is established
@@ -415,4 +416,11 @@ func (mc *mysqlConn) getSystemVar(name string) ([]byte, error) {
 		}
 	}
 	return nil, err
+}
+
+func (mc *mysqlConn) finish() {
+	if mc.finished != nil {
+		close(mc.finished)
+		mc.finished = nil
+	}
 }
