@@ -173,7 +173,14 @@ func (mc *mysqlConn) startWatcher() {
 	watcher := make(chan mysqlContext, 1)
 	mc.watcher = watcher
 	go func() {
-		for ctx := range watcher {
+		for {
+			var ctx mysqlContext
+			select {
+			case ctx = <-watcher:
+			case <-mc.closech:
+				return
+			}
+
 			select {
 			case <-ctx.ctx.Done():
 				mc.cancel(ctx.ctx.Err())
