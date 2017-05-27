@@ -178,7 +178,7 @@ func (mc *mysqlConn) startWatcher() {
 		for ctx := range watcher {
 			select {
 			case <-ctx.ctx.Done():
-				mc.cleanup()
+				mc.cancel(ctx.ctx.Err())
 			case <-ctx.finished:
 			case <-mc.closed:
 				return

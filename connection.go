@@ -49,6 +49,9 @@ type mysqlConn struct {
 	watcher          chan<- mysqlContext
 	closed           chan struct{}
 	finished         chan<- struct{}
+
+	mu          sync.Mutex // guards following fields
+	canceledErr error      // set non-nil if conn is canceled
 }
 
 // Handles parameters set in DSN after the connection is established
@@ -418,6 +421,22 @@ func (mc *mysqlConn) getSystemVar(name string) ([]byte, error) {
 	return nil, err
 }
 
+// finish is called when the query has canceled.
+func (mc *mysqlConn) cancel(err error) {
+	mc.mu.Lock()
+	mc.canceledErr = err
+	mc.mu.Unlock()
+	mc.cleanup()
+}
+
+// canceled returns non-nil if the connection was closed due to context cancelation.
+func (mc *mysqlConn) canceled() error {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	return mc.canceledErr
+}
+
+// finish is called when the query has succeeded.
 func (mc *mysqlConn) finish() {
 	if mc.finished != nil {
 		close(mc.finished)
