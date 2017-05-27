@@ -128,7 +128,6 @@ func (mc *mysqlConn) cleanup(err error) {
 	mc.closed = err
 	close(mc.closech)
 	mc.cfg = nil
-	mc.buf.nc = nil
 	if mc.netConn == nil {
 		return
 	}

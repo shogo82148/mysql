@@ -306,7 +306,7 @@ func TestContextCancelQueryRow(t *testing.T) {
 		dbt.mustExec("INSERT INTO test VALUES (1), (2), (3)")
 		ctx, cancel := context.WithCancel(context.Background())
 
-		rows, err := dbt.db.QueryContext(ctx, "SELECT COUNT(*) FROM test")
+		rows, err := dbt.db.QueryContext(ctx, "SELECT v FROM test")
 		if err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
@@ -325,7 +325,7 @@ func TestContextCancelQueryRow(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		if rows.Next() {
-			dbt.Fatalf("expected end, but not")
+			dbt.Errorf("expected end, but not")
 		}
 		if err := rows.Err(); err != context.Canceled {
 			dbt.Errorf("expected context.Canceled, got %v", err)

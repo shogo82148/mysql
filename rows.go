@@ -146,15 +146,18 @@ func (rows *binaryRows) NextResultSet() error {
 
 func (rows *binaryRows) Next(dest []driver.Value) error {
 	if mc := rows.mc; mc != nil {
-		if err := mc.canceled(); err != nil {
-			return err
-		}
 		if mc.isBroken() {
 			return ErrInvalidConn
 		}
 
 		// Fetch next row from stream
-		return rows.readRow(dest)
+		err := rows.readRow(dest)
+		if err != nil {
+			if cerr := mc.canceled(); cerr != nil {
+				return cerr
+			}
+		}
+		return err
 	}
 	return io.EOF
 }
@@ -171,15 +174,18 @@ func (rows *textRows) NextResultSet() (err error) {
 
 func (rows *textRows) Next(dest []driver.Value) error {
 	if mc := rows.mc; mc != nil {
-		if err := mc.canceled(); err != nil {
-			return err
-		}
 		if mc.isBroken() {
 			return ErrInvalidConn
 		}
 
 		// Fetch next row from stream
-		return rows.readRow(dest)
+		err := rows.readRow(dest)
+		if err != nil {
+			if cerr := mc.canceled(); cerr != nil {
+				return cerr
+			}
+		}
+		return err
 	}
 	return io.EOF
 }
