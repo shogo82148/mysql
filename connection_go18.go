@@ -55,15 +55,7 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 
 	var tx driver.Tx
 	if opts.ReadOnly {
-		if mc.isClosed() {
-			errLog.Print(ErrInvalidConn)
-			return nil, driver.ErrBadConn
-		}
-		// https://dev.mysql.com/doc/refman/5.7/en/innodb-performance-ro-txn.html
-		err = mc.exec("START TRANSACTION READ ONLY")
-		if err == nil {
-			tx = &mysqlTx{mc}
-		}
+		tx, err = mc.beginReadOnly()
 	} else {
 		tx, err = mc.Begin()
 	}
@@ -74,6 +66,20 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		return nil, ctx.Err()
 	}
 	return tx, err
+}
+
+func (mc *mysqlConn) beginReadOnly() (driver.Tx, error) {
+	if mc.isClosed() {
+		errLog.Print(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
+	// https://dev.mysql.com/doc/refman/5.7/en/innodb-performance-ro-txn.html
+	err := mc.exec("START TRANSACTION READ ONLY")
+	if err != nil {
+		return nil, err
+	}
+
+	return &mysqlTx{mc}, nil
 }
 
 func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
