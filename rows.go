@@ -72,6 +72,7 @@ func (rows *mysqlRows) Close() (err error) {
 	if mc.isBroken() {
 		return ErrInvalidConn
 	}
+	defer mc.finish()
 
 	// Remove unread packets from stream
 	if !rows.rs.done {
@@ -82,7 +83,6 @@ func (rows *mysqlRows) Close() (err error) {
 			return err
 		}
 	}
-	rows.mc.finish()
 
 	rows.mc = nil
 	return err
@@ -100,6 +100,9 @@ func (rows *mysqlRows) nextResultSet() (int, error) {
 		return 0, io.EOF
 	}
 	if rows.mc.isBroken() {
+		if cerr := rows.mc.canceled(); cerr != nil {
+			return 0, cerr
+		}
 		return 0, ErrInvalidConn
 	}
 
@@ -147,17 +150,14 @@ func (rows *binaryRows) NextResultSet() error {
 func (rows *binaryRows) Next(dest []driver.Value) error {
 	if mc := rows.mc; mc != nil {
 		if mc.isBroken() {
+			if cerr := mc.canceled(); cerr != nil {
+				return cerr
+			}
 			return ErrInvalidConn
 		}
 
 		// Fetch next row from stream
-		err := rows.readRow(dest)
-		if err != nil {
-			if cerr := mc.canceled(); cerr != nil {
-				return cerr
-			}
-		}
-		return err
+		return rows.readRow(dest)
 	}
 	return io.EOF
 }
@@ -175,17 +175,14 @@ func (rows *textRows) NextResultSet() (err error) {
 func (rows *textRows) Next(dest []driver.Value) error {
 	if mc := rows.mc; mc != nil {
 		if mc.isBroken() {
+			if cerr := mc.canceled(); cerr != nil {
+				return cerr
+			}
 			return ErrInvalidConn
 		}
 
 		// Fetch next row from stream
-		err := rows.readRow(dest)
-		if err != nil {
-			if cerr := mc.canceled(); cerr != nil {
-				return cerr
-			}
-		}
-		return err
+		return rows.readRow(dest)
 	}
 	return io.EOF
 }
