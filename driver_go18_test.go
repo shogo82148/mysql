@@ -197,7 +197,7 @@ func TestPingContext(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		if err := dbt.db.PingContext(ctx); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 	})
 }
@@ -287,7 +287,7 @@ func TestContextCancelQuery(t *testing.T) {
 
 		// Context is already canceled, so error should come before execution.
 		if _, err := dbt.db.QueryContext(ctx, "INSERT INTO test VALUES (1)"); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 
 		// The second insert query will fail, so the table has no changes.
