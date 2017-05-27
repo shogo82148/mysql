@@ -212,10 +212,10 @@ func TestContextCancelExec(t *testing.T) {
 		// This query will be canceled.
 		startTime := time.Now()
 		if _, err := dbt.db.ExecContext(ctx, "INSERT INTO test VALUES (SLEEP(2))"); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 		if d := time.Since(startTime); d > 1500*time.Millisecond {
-			t.Errorf("too long execution time: %s", d)
+			dbt.Errorf("too long execution time: %s", d)
 		}
 
 		// Wait for the INSERT query has done.
@@ -234,7 +234,7 @@ func TestContextCancelExec(t *testing.T) {
 		if _, err := dbt.db.ExecContext(ctx, "INSERT INTO test VALUES (1)"); err == nil {
 			dbt.Error("expected error")
 		} else if err.Error() != "context canceled" {
-			t.Fatalf("unexpected error: %s", err)
+			dbt.Fatalf("unexpected error: %s", err)
 		}
 
 		// The second insert query will fail, so the table has no changes.
@@ -258,10 +258,10 @@ func TestContextCancelQuery(t *testing.T) {
 		// This query will be canceled.
 		startTime := time.Now()
 		if _, err := dbt.db.QueryContext(ctx, "INSERT INTO test VALUES (SLEEP(2))"); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 		if d := time.Since(startTime); d > 1500*time.Millisecond {
-			t.Errorf("too long execution time: %s", d)
+			dbt.Errorf("too long execution time: %s", d)
 		}
 
 		// Wait for the INSERT query has done.
@@ -296,7 +296,7 @@ func TestContextCancelPrepare(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		if _, err := dbt.db.PrepareContext(ctx, "SELECT 1"); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 	})
 }
@@ -316,10 +316,10 @@ func TestContextCancelStmtExec(t *testing.T) {
 		// This query will be canceled.
 		startTime := time.Now()
 		if _, err := stmt.ExecContext(ctx); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 		if d := time.Since(startTime); d > 1500*time.Millisecond {
-			t.Errorf("too long execution time: %s", d)
+			dbt.Errorf("too long execution time: %s", d)
 		}
 
 		// Wait for the INSERT query has done.
@@ -351,10 +351,10 @@ func TestContextCancelStmtQuery(t *testing.T) {
 		// This query will be canceled.
 		startTime := time.Now()
 		if _, err := stmt.QueryContext(ctx); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 		if d := time.Since(startTime); d > 1500*time.Millisecond {
-			t.Errorf("too long execution time: %s", d)
+			dbt.Errorf("too long execution time: %s", d)
 		}
 
 		// Wait for the INSERT query has done.
@@ -386,20 +386,20 @@ func TestContextCancelBegin(t *testing.T) {
 		// This query will be canceled.
 		startTime := time.Now()
 		if _, err := tx.ExecContext(ctx, "INSERT INTO test VALUES (SLEEP(2))"); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 		if d := time.Since(startTime); d > 1500*time.Millisecond {
-			t.Errorf("too long execution time: %s", d)
+			dbt.Errorf("too long execution time: %s", d)
 		}
 
 		// Transaction is canceled, so expect an error.
 		if err := tx.Commit(); err != sql.ErrTxDone {
-			dbt.Error("expected sql.ErrTxDone, got %v", err)
+			dbt.Errorf("expected sql.ErrTxDone, got %v", err)
 		}
 
 		// Context is canceled, so cannot begin a transaction.
 		if _, err := dbt.db.BeginTx(ctx, nil); err != context.Canceled {
-			dbt.Error("expected context.Canceled, got %v", err)
+			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
 	})
 }
