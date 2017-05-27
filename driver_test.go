@@ -1917,40 +1917,6 @@ func TestInterruptBySignal(t *testing.T) {
 	})
 }
 
-func TestTimeout(t *testing.T) {
-	runTests(t, dsn+"&readTimeout=1s", func(dbt *DBTest) {
-		type timeoutErr interface {
-			Timeout() bool
-		}
-
-		dbt.mustExec("CREATE TABLE test (v INTEGER)")
-		startTime := time.Now()
-
-		// This query will read-timeout.
-		if _, err := dbt.db.Exec("INSERT INTO test VALUES (SLEEP(2))"); err == nil {
-			dbt.Error("expected error")
-		} else if err, ok := err.(timeoutErr); !ok || !err.Timeout() {
-			dbt.Error("expected timeout error")
-		}
-
-		if d := time.Since(startTime); d > 1500*time.Millisecond {
-			dbt.Errorf("too long execution time: %s", d)
-		}
-
-		// Wait for the query has done.
-		time.Sleep(2 * time.Second)
-
-		// Check how many times the query is executed.
-		var v int
-		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
-			dbt.Fatalf("%s", err.Error())
-		}
-		if v != 1 {
-			dbt.Errorf("expected val to be 1, got %d", v)
-		}
-	})
-}
-
 func TestColumnsReusesSlice(t *testing.T) {
 	rows := mysqlRows{
 		rs: resultSet{
