@@ -11,7 +11,7 @@ import (
 
 // Ping implements driver.Pinger interface
 func (mc *mysqlConn) Ping(ctx context.Context) error {
-	if mc.isClosed() {
+	if mc.isBroken() {
 		errLog.Print(ErrInvalidConn)
 		return driver.ErrBadConn
 	}
@@ -63,7 +63,7 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 }
 
 func (mc *mysqlConn) beginReadOnly() (driver.Tx, error) {
-	if mc.isClosed() {
+	if mc.isBroken() {
 		errLog.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
 	}
@@ -180,7 +180,7 @@ func (mc *mysqlConn) startWatcher() {
 			case <-ctx.ctx.Done():
 				mc.cancel(ctx.ctx.Err())
 			case <-ctx.finished:
-			case <-mc.closed:
+			case <-mc.closech:
 				return
 			}
 		}
