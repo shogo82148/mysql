@@ -5,6 +5,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"reflect"
 	"testing"
@@ -201,6 +202,14 @@ func TestPingContext(t *testing.T) {
 	})
 }
 
+var (
+	_ driver.ConnBeginTx        = &mysqlConn{}
+	_ driver.ConnPrepareContext = &mysqlConn{}
+	_ driver.ExecerContext      = &mysqlConn{}
+	_ driver.Pinger             = &mysqlConn{}
+	_ driver.QueryerContext     = &mysqlConn{}
+)
+
 func TestContextCancelExec(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		dbt.mustExec("CREATE TABLE test (v INTEGER)")
@@ -300,6 +309,11 @@ func TestContextCancelPrepare(t *testing.T) {
 		}
 	})
 }
+
+var (
+	_ driver.StmtExecContext  = &mysqlStmt{}
+	_ driver.StmtQueryContext = &mysqlStmt{}
+)
 
 func TestContextCancelStmtExec(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
