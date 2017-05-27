@@ -158,12 +158,12 @@ func (mc *mysqlConn) watchCancel(ctx context.Context) error {
 	case <-done:
 		return ctx.Err()
 	}
-	if mc.chCtx == nil {
+	if mc.watcher == nil {
 		return nil
 	}
 
 	finished := make(chan struct{})
-	mc.chCtx <- mysqlContext{
+	mc.watcher <- mysqlContext{
 		ctx:      ctx,
 		finished: finished,
 	}
@@ -172,10 +172,10 @@ func (mc *mysqlConn) watchCancel(ctx context.Context) error {
 }
 
 func (mc *mysqlConn) startWatcher() {
-	chCtx := make(chan mysqlContext, 1)
-	mc.chCtx = chCtx
+	watcher := make(chan mysqlContext, 1)
+	mc.watcher = watcher
 	go func() {
-		for ctx := range chCtx {
+		for ctx := range watcher {
 			select {
 			case <-ctx.ctx.Done():
 				mc.cleanup()

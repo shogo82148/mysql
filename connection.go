@@ -46,7 +46,7 @@ type mysqlConn struct {
 	parseTime        bool
 	strict           bool
 	closeOnce        sync.Once
-	chCtx            chan<- mysqlContext
+	watcher          chan<- mysqlContext
 	closed           chan struct{}
 	finished         chan<- struct{}
 }
