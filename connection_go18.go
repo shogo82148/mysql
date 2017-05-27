@@ -4,6 +4,7 @@ package mysql
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"runtime"
@@ -42,8 +43,8 @@ func (mc *mysqlConn) Ping(ctx context.Context) error {
 
 // BeginTx implements driver.ConnBeginTx interface
 func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	if opts.Isolation != 0 {
-		return nil, errors.New("isolation levels not supported")
+	if sql.IsolationLevel(opts.Isolation) != sql.LevelDefault {
+		return nil, errors.New("mysql: isolation levels not supported")
 	}
 
 	done, err := mc.watchCancel(ctx)
