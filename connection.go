@@ -100,7 +100,7 @@ func (mc *mysqlConn) Begin() (driver.Tx, error) {
 
 func (mc *mysqlConn) Close() (err error) {
 	// Makes Close idempotent
-	if mc.isBroken() {
+	if !mc.isBroken() {
 		err = mc.writeCommandPacket(comQuit)
 	}
 

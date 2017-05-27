@@ -300,6 +300,39 @@ func TestContextCancelQuery(t *testing.T) {
 	})
 }
 
+func TestContextCancelQueryRow(t *testing.T) {
+	runTests(t, dsn, func(dbt *DBTest) {
+		dbt.mustExec("CREATE TABLE test (v INTEGER)")
+		dbt.mustExec("INSERT INTO test VALUES (1), (2), (3)")
+		ctx, cancel := context.WithCancel(context.Background())
+
+		rows, err := dbt.db.QueryContext(ctx, "SELECT COUNT(*) FROM test")
+		if err != nil {
+			dbt.Fatalf("%s", err.Error())
+		}
+
+		// the first row will be succeed.
+		var v int
+		if !rows.Next() {
+			dbt.Fatalf("unexpected end")
+		}
+		if err := rows.Scan(&v); err != nil {
+			dbt.Fatalf("%s", err.Error())
+		}
+
+		cancel()
+		// make sure the driver recieve cancel request.
+		time.Sleep(100 * time.Millisecond)
+
+		if rows.Next() {
+			dbt.Fatalf("expected end, but not")
+		}
+		if err := rows.Err(); err != context.Canceled {
+			dbt.Errorf("expected context.Canceled, got %v", err)
+		}
+	})
+}
+
 func TestContextCancelPrepare(t *testing.T) {
 	runTests(t, dsn, func(dbt *DBTest) {
 		ctx, cancel := context.WithCancel(context.Background())

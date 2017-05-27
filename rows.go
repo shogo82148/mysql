@@ -69,7 +69,7 @@ func (rows *mysqlRows) Close() (err error) {
 	if mc == nil {
 		return nil
 	}
-	if mc.netConn == nil {
+	if mc.isBroken() {
 		return ErrInvalidConn
 	}
 
@@ -82,6 +82,7 @@ func (rows *mysqlRows) Close() (err error) {
 			return err
 		}
 	}
+	rows.mc.finish()
 
 	rows.mc = nil
 	return err
@@ -98,7 +99,7 @@ func (rows *mysqlRows) nextResultSet() (int, error) {
 	if rows.mc == nil {
 		return 0, io.EOF
 	}
-	if rows.mc.netConn == nil {
+	if rows.mc.isBroken() {
 		return 0, ErrInvalidConn
 	}
 
@@ -145,7 +146,10 @@ func (rows *binaryRows) NextResultSet() error {
 
 func (rows *binaryRows) Next(dest []driver.Value) error {
 	if mc := rows.mc; mc != nil {
-		if mc.netConn == nil {
+		if err := mc.canceled(); err != nil {
+			return err
+		}
+		if mc.isBroken() {
 			return ErrInvalidConn
 		}
 
@@ -167,7 +171,10 @@ func (rows *textRows) NextResultSet() (err error) {
 
 func (rows *textRows) Next(dest []driver.Value) error {
 	if mc := rows.mc; mc != nil {
-		if mc.netConn == nil {
+		if err := mc.canceled(); err != nil {
+			return err
+		}
+		if mc.isBroken() {
 			return ErrInvalidConn
 		}
 

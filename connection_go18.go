@@ -80,7 +80,6 @@ func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driv
 	if err := mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
-	defer mc.finish()
 
 	dargs, err := namedValueToValue(args)
 	if err != nil {
@@ -126,7 +125,6 @@ func (stmt *mysqlStmt) QueryContext(ctx context.Context, args []driver.NamedValu
 	if err := stmt.mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
-	defer stmt.mc.finish()
 
 	dargs, err := namedValueToValue(args)
 	if err != nil {
