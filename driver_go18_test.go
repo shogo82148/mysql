@@ -439,6 +439,9 @@ func TestContextCancelBegin(t *testing.T) {
 			dbt.Errorf("too long execution time: %s", d)
 		}
 
+		// make sure the driver recieve cancel request.
+		time.Sleep(100 * time.Millisecond)
+
 		// Transaction is canceled, so expect an error.
 		if err := tx.Commit(); err != sql.ErrTxDone {
 			dbt.Errorf("expected sql.ErrTxDone, got %v", err)
