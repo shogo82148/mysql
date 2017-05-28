@@ -28,8 +28,9 @@ type resultSet struct {
 }
 
 type mysqlRows struct {
-	mc *mysqlConn
-	rs resultSet
+	mc     *mysqlConn
+	rs     resultSet
+	finish func()
 }
 
 type binaryRows struct {
@@ -64,7 +65,16 @@ func (rows *mysqlRows) Columns() []string {
 	return columns
 }
 
+func (rows *mysqlRows) setFinish(f func()) {
+	rows.finish = f
+}
+
 func (rows *mysqlRows) Close() (err error) {
+	if f := rows.finish; f != nil {
+		f()
+		rows.finish = nil
+	}
+
 	mc := rows.mc
 	if mc == nil {
 		return nil
@@ -72,7 +82,6 @@ func (rows *mysqlRows) Close() (err error) {
 	if mc.isBroken() {
 		return ErrInvalidConn
 	}
-	defer mc.finish()
 
 	// Remove unread packets from stream
 	if !rows.rs.done {
