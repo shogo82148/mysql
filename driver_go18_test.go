@@ -460,8 +460,9 @@ func TestContextBeginReadOnly(t *testing.T) {
 		tx, err := dbt.db.BeginTx(ctx, &sql.TxOptions{
 			ReadOnly: true,
 		})
-		if err != nil {
-			dbt.Fatal(err)
+		if _, ok := err.(*MySQLError); !ok {
+			dbt.Skip("It seems that your MySQL does not support READ ONLY transactions")
+			return
 		}
 
 		// INSERT queries fail in a READ ONLY transaction.
