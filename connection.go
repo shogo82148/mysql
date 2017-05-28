@@ -19,17 +19,12 @@ import (
 	"time"
 )
 
-type mysqlContext struct {
-	//a copy of context.Context from Go 1.7 and later.
-	ctx interface {
-		Deadline() (deadline time.Time, ok bool)
-		Done() <-chan struct{}
-		Err() error
-		Value(key interface{}) interface{}
-	}
-
-	// finished notifies the query has succeeded
-	finished <-chan struct{}
+//a copy of context.Context from Go 1.7 and later.
+type mysqlContext interface {
+	Deadline() (deadline time.Time, ok bool)
+	Done() <-chan struct{}
+	Err() error
+	Value(key interface{}) interface{}
 }
 
 type mysqlConn struct {
@@ -444,8 +439,11 @@ func (mc *mysqlConn) canceled() error {
 
 // finish is called when the query has succeeded.
 func (mc *mysqlConn) finish() {
-	if mc.finished != nil {
-		close(mc.finished)
-		mc.finished = nil
+	if mc.finished == nil {
+		return
+	}
+	select {
+	case mc.finished <- struct{}{}:
+	case <-mc.closech:
 	}
 }

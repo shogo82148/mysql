@@ -129,31 +129,25 @@ func (stmt *mysqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue
 }
 
 func (mc *mysqlConn) watchCancel(ctx context.Context) error {
-	done := ctx.Done()
-	if done == context.Background().Done() {
-		return nil
-	}
 	select {
 	default:
-	case <-done:
+	case <-ctx.Done():
 		return ctx.Err()
 	}
 	if mc.watcher == nil {
 		return nil
 	}
 
-	finished := make(chan struct{})
-	mc.watcher <- mysqlContext{
-		ctx:      ctx,
-		finished: finished,
-	}
-	mc.finished = finished
+	mc.watcher <- ctx
+
 	return nil
 }
 
 func (mc *mysqlConn) startWatcher() {
 	watcher := make(chan mysqlContext, 1)
 	mc.watcher = watcher
+	finished := make(chan struct{})
+	mc.finished = finished
 	go func() {
 		for {
 			var ctx mysqlContext
@@ -164,9 +158,9 @@ func (mc *mysqlConn) startWatcher() {
 			}
 
 			select {
-			case <-ctx.ctx.Done():
-				mc.cancel(ctx.ctx.Err())
-			case <-ctx.finished:
+			case <-ctx.Done():
+				mc.cancel(ctx.Err())
+			case <-finished:
 			case <-mc.closech:
 				return
 			}
