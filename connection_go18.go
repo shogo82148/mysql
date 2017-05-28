@@ -74,17 +74,18 @@ func (mc *mysqlConn) beginReadOnly() (driver.Tx, error) {
 }
 
 func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if err := mc.watchCancel(ctx); err != nil {
-		return nil, err
-	}
-
 	dargs, err := namedValueToValue(args)
 	if err != nil {
 		return nil, err
 	}
 
+	if err := mc.watchCancel(ctx); err != nil {
+		return nil, err
+	}
+
 	rows, err := mc.Query(query, dargs)
 	if err != nil {
+		mc.finish()
 		return nil, err
 	}
 	if set, ok := rows.(setfinish); ok {
@@ -118,17 +119,18 @@ func (mc *mysqlConn) PrepareContext(ctx context.Context, query string) (driver.S
 }
 
 func (stmt *mysqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	if err := stmt.mc.watchCancel(ctx); err != nil {
-		return nil, err
-	}
-
 	dargs, err := namedValueToValue(args)
 	if err != nil {
 		return nil, err
 	}
 
+	if err := stmt.mc.watchCancel(ctx); err != nil {
+		return nil, err
+	}
+
 	rows, err := stmt.Query(dargs)
 	if err != nil {
+		stmt.mc.finish()
 		return nil, err
 	}
 	if set, ok := rows.(setfinish); ok {
