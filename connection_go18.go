@@ -44,7 +44,6 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 	if err := mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
-	defer mc.finish()
 
 	var err error
 	var tx driver.Tx
@@ -53,8 +52,16 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 	} else {
 		tx, err = mc.Begin()
 	}
+	mc.finish()
 	if err != nil {
 		return nil, err
+	}
+
+	select {
+	default:
+	case <-ctx.Done():
+		tx.Rollback()
+		return nil, ctx.Err()
 	}
 	return tx, err
 }
@@ -113,9 +120,20 @@ func (mc *mysqlConn) PrepareContext(ctx context.Context, query string) (driver.S
 	if err := mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
-	defer mc.finish()
 
-	return mc.Prepare(query)
+	stmt, err := mc.Prepare(query)
+	mc.finish()
+	if err != nil {
+		return nil, err
+	}
+
+	select {
+	default:
+	case <-ctx.Done():
+		stmt.Close()
+		return nil, ctx.Err()
+	}
+	return stmt, nil
 }
 
 func (stmt *mysqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
