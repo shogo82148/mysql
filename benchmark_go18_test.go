@@ -19,6 +19,7 @@ func benchmarkQueryContext(b *testing.B, db *sql.DB, p int) {
 	stmt := tb.checkStmt(db.PrepareContext(ctx, "SELECT val FROM foo WHERE id=?"))
 	defer stmt.Close()
 
+	b.SetParallelism(p)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -56,6 +57,7 @@ func benchmarkExecContext(b *testing.B, db *sql.DB, p int) {
 	stmt := tb.checkStmt(db.PrepareContext(ctx, "DO 1"))
 	defer stmt.Close()
 
+	b.SetParallelism(p)
 	b.ReportAllocs()
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
