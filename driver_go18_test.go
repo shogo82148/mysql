@@ -408,7 +408,7 @@ func TestContextCancelStmtQuery(t *testing.T) {
 		if _, err := stmt.QueryContext(ctx); err != context.Canceled {
 			dbt.Errorf("expected context.Canceled, got %v", err)
 		}
-		if d := time.Since(startTime); d > 1500*time.Millisecond {
+		if d := time.Since(startTime); d > 500*time.Millisecond {
 			dbt.Errorf("too long execution time: %s", d)
 		}
 
