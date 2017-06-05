@@ -224,7 +224,7 @@ func TestContextCancelExec(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		// Delay execution for just a bit until db.ExecContext has begun.
-		defer time.AfterFunc(10*time.Millisecond, cancel).Stop()
+		defer time.AfterFunc(100*time.Millisecond, cancel).Stop()
 
 		// This query will be canceled.
 		startTime := time.Now()
@@ -270,7 +270,7 @@ func TestContextCancelQuery(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		// Delay execution for just a bit until db.ExecContext has begun.
-		defer time.AfterFunc(10*time.Millisecond, cancel).Stop()
+		defer time.AfterFunc(100*time.Millisecond, cancel).Stop()
 
 		// This query will be canceled.
 		startTime := time.Now()
@@ -366,7 +366,7 @@ func TestContextCancelStmtExec(t *testing.T) {
 		}
 
 		// Delay execution for just a bit until db.ExecContext has begun.
-		defer time.AfterFunc(10*time.Millisecond, cancel).Stop()
+		defer time.AfterFunc(100*time.Millisecond, cancel).Stop()
 
 		// This query will be canceled.
 		startTime := time.Now()
@@ -401,7 +401,7 @@ func TestContextCancelStmtQuery(t *testing.T) {
 		}
 
 		// Delay execution for just a bit until db.ExecContext has begun.
-		defer time.AfterFunc(10*time.Millisecond, cancel).Stop()
+		defer time.AfterFunc(100*time.Millisecond, cancel).Stop()
 
 		// This query will be canceled.
 		startTime := time.Now()
@@ -436,7 +436,7 @@ func TestContextCancelBegin(t *testing.T) {
 		}
 
 		// Delay execution for just a bit until db.ExecContext has begun.
-		defer time.AfterFunc(10*time.Millisecond, cancel).Stop()
+		defer time.AfterFunc(100*time.Millisecond, cancel).Stop()
 
 		// This query will be canceled.
 		startTime := time.Now()
