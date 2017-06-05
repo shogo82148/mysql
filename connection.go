@@ -122,7 +122,6 @@ func (mc *mysqlConn) cleanup(err error) {
 	// Makes cleanup idempotent
 	mc.closed = err
 	close(mc.closech)
-	mc.cfg = nil
 	if mc.netConn == nil {
 		return
 	}
