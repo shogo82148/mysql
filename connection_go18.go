@@ -112,15 +112,16 @@ func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driv
 }
 
 func (mc *mysqlConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	dargs, err := namedValueToValue(args)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
 	defer mc.finish()
 
-	dargs, err := namedValueToValue(args)
-	if err != nil {
-		return nil, err
-	}
 	return mc.Exec(query, dargs)
 }
 
@@ -168,15 +169,16 @@ func (stmt *mysqlStmt) QueryContext(ctx context.Context, args []driver.NamedValu
 }
 
 func (stmt *mysqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	dargs, err := namedValueToValue(args)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := stmt.mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
 	defer stmt.mc.finish()
 
-	dargs, err := namedValueToValue(args)
-	if err != nil {
-		return nil, err
-	}
 	return stmt.Exec(dargs)
 }
 
