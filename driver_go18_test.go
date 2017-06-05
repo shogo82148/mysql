@@ -243,7 +243,7 @@ func TestContextCancelExec(t *testing.T) {
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 1 {
+		if v != 1 { // TODO: need to kill the query, and v should be 0.
 			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 
@@ -289,7 +289,7 @@ func TestContextCancelQuery(t *testing.T) {
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 1 {
+		if v != 1 { // TODO: need to kill the query, and v should be 0.
 			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 
@@ -385,7 +385,7 @@ func TestContextCancelStmtExec(t *testing.T) {
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 1 {
+		if v != 1 { // TODO: need to kill the query, and v should be 0.
 			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 	})
@@ -420,7 +420,7 @@ func TestContextCancelStmtQuery(t *testing.T) {
 		if err := dbt.db.QueryRow("SELECT COUNT(*) FROM test").Scan(&v); err != nil {
 			dbt.Fatalf("%s", err.Error())
 		}
-		if v != 1 {
+		if v != 1 { // TODO: need to kill the query, and v should be 0.
 			dbt.Errorf("expected val to be 1, got %d", v)
 		}
 	})
