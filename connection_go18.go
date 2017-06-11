@@ -45,16 +45,18 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		// TODO: support isolation levels
 		return nil, errors.New("mysql: isolation levels not supported")
 	}
-	if opts.ReadOnly {
-		// TODO: support read-only transactions
-		return nil, errors.New("mysql: read-only transactions not supported")
-	}
 
 	if err := mc.watchCancel(ctx); err != nil {
 		return nil, err
 	}
 
-	tx, err := mc.Begin()
+	var err error
+	var tx driver.Tx
+	if opts.ReadOnly {
+		tx, err = mc.beginReadOnly()
+	} else {
+		tx, err = mc.Begin()
+	}
 	mc.finish()
 	if err != nil {
 		return nil, err
@@ -67,6 +69,19 @@ func (mc *mysqlConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver
 		return nil, ctx.Err()
 	}
 	return tx, err
+}
+
+func (mc *mysqlConn) beginReadOnly() (driver.Tx, error) {
+	if mc.closed.IsSet() {
+		errLog.Print(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
+	err := mc.exec("START TRANSACTION READ ONLY")
+	if err != nil {
+		return nil, err
+	}
+
+	return &mysqlTx{mc}, nil
 }
 
 func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
