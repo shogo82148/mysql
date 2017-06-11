@@ -78,6 +78,9 @@ func (mc *mysqlConn) beginReadOnly() (driver.Tx, error) {
 	}
 	err := mc.exec("START TRANSACTION READ ONLY")
 	if err != nil {
+		if _, ok := err.(*MySQLError); ok {
+			return nil, ErrReadOnlyTxNotSupported
+		}
 		return nil, err
 	}
 
