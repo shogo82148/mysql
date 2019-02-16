@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"net"
+	pkgnet "net"
 	"sync"
 )
 
@@ -32,19 +33,33 @@ type MySQLDriver struct{}
 // Custom dial functions must be registered with RegisterDial
 type DialFunc func(addr string) (net.Conn, error)
 
+// DialContextFunc is a function which can be used to establish the network connection using the provided context.
+// Custom dial functions must be registered with RegisterDialContext
+type DialContextFunc func(ctx context.Context, addr string) (net.Conn, error)
+
 var (
 	dialsLock sync.RWMutex
-	dials     map[string]DialFunc
+	dials     map[string]DialContextFunc
 )
 
 // RegisterDial registers a custom dial function. It can then be used by the
 // network address mynet(addr), where mynet is the registered new network.
 // addr is passed as a parameter to the dial function.
 func RegisterDial(net string, dial DialFunc) {
+	dialContext := DialContextFunc(func(ctx context.Context, addr string) (pkgnet.Conn, error) {
+		return dial(addr)
+	})
+	RegisterDialContext(net, dialContext)
+}
+
+// RegisterDialContext registers a custom dial function. It can then be used by the
+// network address mynet(addr), where mynet is the registered new network.
+// addr is passed as a parameter to the dial function.
+func RegisterDialContext(net string, dial DialContextFunc) {
 	dialsLock.Lock()
 	defer dialsLock.Unlock()
 	if dials == nil {
-		dials = make(map[string]DialFunc)
+		dials = make(map[string]DialContextFunc)
 	}
 	dials[net] = dial
 }

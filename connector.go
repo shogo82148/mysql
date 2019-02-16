@@ -33,12 +33,11 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 	mc.parseTime = mc.cfg.ParseTime
 
 	// Connect to Server
-	// TODO: needs RegisterDialContext
 	dialsLock.RLock()
 	dial, ok := dials[mc.cfg.Net]
 	dialsLock.RUnlock()
 	if ok {
-		mc.netConn, err = dial(mc.cfg.Addr)
+		mc.netConn, err = dial(ctx, mc.cfg.Addr)
 	} else {
 		nd := net.Dialer{Timeout: mc.cfg.Timeout}
 		mc.netConn, err = nd.DialContext(ctx, mc.cfg.Net, mc.cfg.Addr)
