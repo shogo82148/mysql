@@ -34,7 +34,7 @@ jobs:
       uses: actions/checkout@v1
 
     - name: Test
-      run: go test -v -covermode=count -coverprofile=coverage.out
+      run: .travis/wait_mysql.sh && go test -v -covermode=count -coverprofile=coverage.out
       env:
         MYSQL_TEST_USER: gotest
         MYSQL_TEST_PASS: secret
