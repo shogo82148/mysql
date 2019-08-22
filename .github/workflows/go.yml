@@ -33,8 +33,13 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v1
 
+    - name: wait for mysql
+      run: |
+        cp .travis/docker.cnf ~/.my.cnf
+        .travis/wait_mysql.sh
+
     - name: Test
-      run: .travis/wait_mysql.sh && go test -v -covermode=count -coverprofile=coverage.out
+      run: go test -v -covermode=count -coverprofile=coverage.out
       env:
         MYSQL_TEST_USER: gotest
         MYSQL_TEST_PASS: secret
