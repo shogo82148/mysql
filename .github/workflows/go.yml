@@ -34,6 +34,11 @@ jobs:
 
     - name: Test
       run: go test -v -covermode=count -coverprofile=coverage.out
+      env:
+        MYSQL_TEST_USER: gotest
+        MYSQL_TEST_PASS: secret
+        MYSQL_TEST_ADDR: "127.0.0.1:3306"
+        MYSQL_TEST_CONCURRENT: "1"
 
     - name: vet
       run: go vet
