@@ -9,6 +9,16 @@ jobs:
       matrix:
         go_version: [ "1.9", "1.10", "1.11", "1.12" ]
         os: [ "ubuntu-latest", "windows-latest", "macOS-latest" ]
+    services:
+      mysql:
+        image: mysql:8.0
+        ports:
+        - 3306:3306
+        env:
+          MYSQL_DATABASE: gotest
+          MYSQL_PASSWORD: secret
+          MYSQL_ROOT_PASSWORD: verysecret
+
     steps:
 
     - name: Set up Go ${{ matrix.go_version }}
