@@ -1,0 +1,60 @@
+name: test
+on:
+  pull_request:
+  push:
+    branches:
+      - "master"
+  workflow_dispatch:
+
+env:
+  MYSQL_TEST_USER: gotest
+  MYSQL_TEST_PASS: secret
+  MYSQL_TEST_ADDR: 127.0.0.1:3306
+  MYSQL_TEST_CONCURRENT: 1
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go:
+          # Keep the most recent production release at the top
+          - 1.15.x
+          # Older production releases
+          - 1.14.x
+          - 1.13.x
+          - 1.12.x
+          - 1.11.x
+          - 1.10.x
+        os:
+          - ubuntu-latest
+          - macos_latest
+          - windows-latest
+        mysql:
+          - '8.0'
+          - '5.7'
+          - '5.6'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - uses: shogo82148/actions-setup-mysql@v1
+        with:
+          mysql-version: ${{ matrix.mysql }}
+          user: ${{ env.MYSQL_TEST_USER }}
+          password: ${{ env.MYSQL_TEST_PASS }}
+          my-cnf: |
+            innodb_log_file_size=256MB
+            innodb_buffer_pool_size=512MB
+            max_allowed_packet=16MB
+            local_infile=1
+      - name: setup database
+        run: |
+          mysql -uroot -e 'GRANT ALL ON *.* TO gotest'
+          mysql -uroot -e 'create database gotest;'
+
+      - name: test
+        run: |
+          go test -v -covermode=count -coverprofile=coverage.out
