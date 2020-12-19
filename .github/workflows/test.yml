@@ -52,8 +52,7 @@ jobs:
             local_infile=1
       - name: setup database
         run: |
-          mysql -uroot -e 'GRANT ALL ON *.* TO gotest'
-          mysql -uroot -e 'create database gotest;'
+          mysql -uroot -h127.0.0.1 -e 'create database gotest;'
 
       - name: test
         run: |
