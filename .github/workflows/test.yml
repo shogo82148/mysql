@@ -52,7 +52,7 @@ jobs:
             local_infile=1
       - name: setup database
         run: |
-          mysql -uroot -h127.0.0.1 -e 'create database gotest;'
+          mysql --user 'root' --host '127.0.0.1' -e 'create database gotest;'
 
       - name: test
         run: |
