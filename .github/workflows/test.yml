@@ -49,7 +49,8 @@ jobs:
             innodb_log_file_size=256MB
             innodb_buffer_pool_size=512MB
             max_allowed_packet=16MB
-            max_connections=50 # TestConcurrent fails if max_connections is too large
+            ; TestConcurrent fails if max_connections is too large
+            max_connections=50
             local_infile=1
       - name: setup database
         run: |
