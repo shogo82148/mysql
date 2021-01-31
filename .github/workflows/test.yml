@@ -42,10 +42,9 @@ jobs:
           ]
 
           includes = []
-          # Go versions vs MySQL versions
+          # Go versions compatibility check
           for v in go[1:]:
-              for m in mysql:
-                  includes.append({'os': 'ubuntu-latest', 'go': v, 'mysql': m})
+                  includes.append({'os': 'ubuntu-latest', 'go': v, 'mysql': mysql[0]})
 
           matrix = {
               # OS vs MySQL versions
