@@ -13,30 +13,57 @@ env:
   MYSQL_TEST_CONCURRENT: 1
 
 jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: list
+        id: set-matrix
+        run: |
+          from __future__ import print_function
+          import json
+          go = [
+              # Keep the most recent production release at the top
+              '1.15',
+              # Older production releases
+              '1.14',
+              '1.13',
+              '1.12',
+              '1.11',
+          ]
+          mysql = [
+              '8.0',
+              '5.7',
+              '5.6',
+              'mariadb-10.5',
+              'mariadb-10.4',
+              'mariadb-10.3',
+          ]
+
+          includes = []
+          # Go versions vs MySQL versions
+          for v in go[1:]:
+              for m in mysql:
+                  includes.append({'os': 'ubuntu-latest', 'go': v, 'mysql': m})
+
+          matrix = {
+              # OS vs MySQL versions
+              'os': [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ],
+              'go': [ go[0] ],
+              'mysql': mysql,
+
+              'include': includes
+          }
+          output = json.dumps(matrix, separators=(',', ':'))
+          print('::set-output name=matrix::{0}'.format(output))
+        shell: python
   test:
+    needs: list
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        go:
-          # Keep the most recent production release at the top
-          - 1.15.x
-          # Older production releases
-          - 1.14.x
-          - 1.13.x
-          - 1.12.x
-          - 1.11.x
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        mysql:
-          - '8.0'
-          - '5.7'
-          - '5.6'
-          - 'mariadb-10.5'
-          - 'mariadb-10.4'
-          - 'mariadb-10.3'
+      matrix: ${{ fromJSON(needs.list.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
