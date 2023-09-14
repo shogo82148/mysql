@@ -71,7 +71,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		maxAllowedPacket: maxPacketSize,
 		maxWriteSize:     maxPacketSize - 1,
 		closech:          make(chan struct{}),
-		readCh:           make(chan []byte, 1),
+		readCh:           make(chan readResult, 1),
 		writeCh:          make(chan []byte, 1),
 
 		// it is used for syncing write operations; it must not be buffered.

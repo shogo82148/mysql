@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+type readResult struct {
+	data []byte
+	err  error
+}
+
 type writeResult struct {
 	n   int
 	err error
@@ -49,7 +54,7 @@ type mysqlConn struct {
 	canceled atomicError // set non-nil if conn is canceled
 	closed   atomicBool  // set when conn is closed, before closech is closed
 
-	readCh      chan []byte      // buffered channel for read a packet
+	readCh      chan readResult  // buffered channel for read a packet
 	writeCh     chan []byte      // buffered channel for write a packet
 	writeResult chan writeResult // notify writing the packet is done
 }
@@ -642,44 +647,6 @@ func (mc *mysqlConn) startWatcher() {
 			}
 		}
 	}()
-}
-
-func (mc *mysqlConn) startReader() {
-	go func() {
-		// TODO: implement me
-	}()
-}
-
-func (mc *mysqlConn) startWriter() {
-	go func() {
-		for {
-			var data []byte
-			select {
-			case data = <-mc.writeCh:
-			case <-mc.closech:
-				return
-			}
-
-			var n int
-			var err error
-			if mc.writeTimeout > 0 {
-				err = mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout))
-			}
-			if err == nil {
-				n, err = mc.netConn.Write(data)
-			}
-			select {
-			case mc.writeResult <- writeResult{n, err}:
-			case <-mc.closech:
-				return
-			}
-		}
-	}()
-}
-
-func (mc *mysqlConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
-	nv.Value, err = converter{}.ConvertValue(nv.Value)
-	return
 }
 
 // ResetSession implements driver.SessionResetter.

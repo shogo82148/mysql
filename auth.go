@@ -374,12 +374,12 @@ func (mc *mysqlConn) handleAuthResult(oldAuthData []byte, plugin string) error {
 							return err
 						}
 
-						if data, err = mc.readPacket(); err != nil {
+						if data, err = mc.readPacket(ctx); err != nil {
 							return err
 						}
 
 						if data[0] != iAuthMoreData {
-							return fmt.Errorf("unexpect resp from server for caching_sha2_password perform full authentication")
+							return fmt.Errorf("unexpected resp from server for caching_sha2_password perform full authentication")
 						}
 
 						// parse public key
