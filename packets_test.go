@@ -102,14 +102,22 @@ func newRWMockConn(sequence uint8) (*mockConn, *mysqlConn) {
 		panic(err)
 	}
 	mc := &mysqlConn{
-		buf:              newBuffer(conn),
-		cfg:              connector.cfg,
-		connector:        connector,
-		netConn:          conn,
-		closech:          make(chan struct{}),
+		buf:       newBuffer(conn),
+		cfg:       connector.cfg,
+		connector: connector,
+		netConn:   conn,
+		closech:   make(chan struct{}),
+		readCh:    make(chan readResult, 1),
+		writeCh:   make(chan []byte, 1),
+
+		// it is used for syncing write operations; it must not be buffered.
+		writeResult: make(chan writeResult),
+
 		maxAllowedPacket: defaultMaxAllowedPacket,
 		sequence:         sequence,
 	}
+	mc.startReader()
+	mc.startWriter()
 	return conn, mc
 }
 
