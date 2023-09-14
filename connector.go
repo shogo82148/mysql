@@ -71,8 +71,14 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		maxAllowedPacket: maxPacketSize,
 		maxWriteSize:     maxPacketSize - 1,
 		closech:          make(chan struct{}),
-		cfg:              c.cfg,
-		connector:        c,
+		readCh:           make(chan []byte, 1),
+		writeCh:          make(chan []byte, 1),
+
+		// it is used for syncing write operations; it must not be buffered.
+		writeResult: make(chan writeResult),
+
+		cfg:       c.cfg,
+		connector: c,
 	}
 	mc.parseTime = mc.cfg.ParseTime
 
@@ -111,6 +117,9 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, err
 	}
 	defer mc.finish()
+
+	mc.startReader()
+	mc.startWriter()
 
 	mc.buf = newBuffer(mc.netConn)
 

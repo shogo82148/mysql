@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+type writeResult struct {
+	n   int
+	err error
+}
+
 type mysqlConn struct {
 	buf              buffer
 	netConn          net.Conn
@@ -43,6 +48,10 @@ type mysqlConn struct {
 	finished chan<- struct{}
 	canceled atomicError // set non-nil if conn is canceled
 	closed   atomicBool  // set when conn is closed, before closech is closed
+
+	readCh      chan []byte      // buffered channel for read a packet
+	writeCh     chan []byte      // buffered channel for write a packet
+	writeResult chan writeResult // notify writing the packet is done
 }
 
 // Handles parameters set in DSN after the connection is established
@@ -628,6 +637,39 @@ func (mc *mysqlConn) startWatcher() {
 			case <-ctx.Done():
 				mc.cancel(ctx.Err())
 			case <-finished:
+			case <-mc.closech:
+				return
+			}
+		}
+	}()
+}
+
+func (mc *mysqlConn) startReader() {
+	go func() {
+		// TODO: implement me
+	}()
+}
+
+func (mc *mysqlConn) startWriter() {
+	go func() {
+		for {
+			var data []byte
+			select {
+			case data = <-mc.writeCh:
+			case <-mc.closech:
+				return
+			}
+
+			var n int
+			var err error
+			if mc.writeTimeout > 0 {
+				err = mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout))
+			}
+			if err == nil {
+				n, err = mc.netConn.Write(data)
+			}
+			select {
+			case mc.writeResult <- writeResult{n, err}:
 			case <-mc.closech:
 				return
 			}

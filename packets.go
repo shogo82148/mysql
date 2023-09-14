@@ -10,6 +10,7 @@ package mysql
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"database/sql/driver"
 	"encoding/binary"
@@ -90,7 +91,7 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 }
 
 // Write packet buffer 'data'
-func (mc *mysqlConn) writePacket(data []byte) error {
+func (mc *mysqlConn) writePacket(ctx context.Context, data []byte) error {
 	pktLen := len(data) - 4
 
 	if pktLen > mc.maxAllowedPacket {
@@ -141,13 +142,10 @@ func (mc *mysqlConn) writePacket(data []byte) error {
 		data[3] = mc.sequence
 
 		// Write packet
-		if mc.writeTimeout > 0 {
-			if err := mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout)); err != nil {
-				return err
-			}
-		}
-
-		n, err := mc.netConn.Write(data[:4+size])
+		mc.writeCh <- data[:4+size]
+		ret := <-mc.writeResult
+		err := ret.err
+		n := ret.n
 		if err == nil && n == 4+size {
 			mc.sequence++
 			if size != maxPacketSize {
@@ -277,6 +275,8 @@ func (mc *mysqlConn) readHandshakePacket() (data []byte, plugin string, err erro
 // Client Authentication Packet
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::HandshakeResponse
 func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string) error {
+	ctx := context.TODO()
+
 	// Adjust client flags based on server support
 	clientFlags := clientProtocol41 |
 		clientSecureConn |
@@ -370,7 +370,7 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	// http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::SSLRequest
 	if mc.cfg.TLS != nil {
 		// Send TLS / SSL request packet
-		if err := mc.writePacket(data[:(4+4+1+23)+4]); err != nil {
+		if err := mc.writePacket(ctx, data[:(4+4+1+23)+4]); err != nil {
 			return err
 		}
 
@@ -412,11 +412,13 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	pos += copy(data[pos:], []byte(mc.connector.encodedAttributes))
 
 	// Send Auth packet
-	return mc.writePacket(data[:pos])
+	return mc.writePacket(ctx, data[:pos])
 }
 
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchResponse
 func (mc *mysqlConn) writeAuthSwitchPacket(authData []byte) error {
+	ctx := context.TODO()
+
 	pktLen := 4 + len(authData)
 	data, err := mc.buf.takeSmallBuffer(pktLen)
 	if err != nil {
@@ -427,7 +429,7 @@ func (mc *mysqlConn) writeAuthSwitchPacket(authData []byte) error {
 
 	// Add the auth data [EOF]
 	copy(data[4:], authData)
-	return mc.writePacket(data)
+	return mc.writePacket(ctx, data)
 }
 
 /******************************************************************************
@@ -435,6 +437,8 @@ func (mc *mysqlConn) writeAuthSwitchPacket(authData []byte) error {
 ******************************************************************************/
 
 func (mc *mysqlConn) writeCommandPacket(command byte) error {
+	ctx := context.TODO()
+
 	// Reset Packet Sequence
 	mc.sequence = 0
 
@@ -449,10 +453,12 @@ func (mc *mysqlConn) writeCommandPacket(command byte) error {
 	data[4] = command
 
 	// Send CMD packet
-	return mc.writePacket(data)
+	return mc.writePacket(ctx, data)
 }
 
 func (mc *mysqlConn) writeCommandPacketStr(command byte, arg string) error {
+	ctx := context.TODO()
+
 	// Reset Packet Sequence
 	mc.sequence = 0
 
@@ -471,10 +477,12 @@ func (mc *mysqlConn) writeCommandPacketStr(command byte, arg string) error {
 	copy(data[5:], arg)
 
 	// Send CMD packet
-	return mc.writePacket(data)
+	return mc.writePacket(ctx, data)
 }
 
 func (mc *mysqlConn) writeCommandPacketUint32(command byte, arg uint32) error {
+	ctx := context.TODO()
+
 	// Reset Packet Sequence
 	mc.sequence = 0
 
@@ -495,7 +503,7 @@ func (mc *mysqlConn) writeCommandPacketUint32(command byte, arg uint32) error {
 	data[8] = byte(arg >> 24)
 
 	// Send CMD packet
-	return mc.writePacket(data)
+	return mc.writePacket(ctx, data)
 }
 
 /******************************************************************************
@@ -942,6 +950,8 @@ func (stmt *mysqlStmt) readPrepareResultPacket() (uint16, error) {
 
 // http://dev.mysql.com/doc/internals/en/com-stmt-send-long-data.html
 func (stmt *mysqlStmt) writeCommandLongData(paramID int, arg []byte) error {
+	ctx := context.TODO()
+
 	maxLen := stmt.mc.maxAllowedPacket - 1
 	pktLen := maxLen
 
@@ -978,7 +988,7 @@ func (stmt *mysqlStmt) writeCommandLongData(paramID int, arg []byte) error {
 		data[10] = byte(paramID >> 8)
 
 		// Send CMD packet
-		err := stmt.mc.writePacket(data[:4+pktLen])
+		err := stmt.mc.writePacket(ctx, data[:4+pktLen])
 		if err == nil {
 			data = data[pktLen-dataOffset:]
 			continue
@@ -995,6 +1005,8 @@ func (stmt *mysqlStmt) writeCommandLongData(paramID int, arg []byte) error {
 // Execute Prepared Statement
 // http://dev.mysql.com/doc/internals/en/com-stmt-execute.html
 func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
+	ctx := context.TODO()
+
 	if len(args) != stmt.paramCount {
 		return fmt.Errorf(
 			"argument count mismatch (got: %d; has: %d)",
@@ -1234,7 +1246,7 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 		data = data[:pos]
 	}
 
-	return mc.writePacket(data)
+	return mc.writePacket(ctx, data)
 }
 
 // For each remaining resultset in the stream, discards its rows and updates
