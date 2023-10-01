@@ -24,7 +24,7 @@ type mysqlStmt struct {
 }
 
 func (stmt *mysqlStmt) Close() error {
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	if stmt.mc == nil || stmt.mc.closed.Load() {
 		// driver.Stmt.Close can be called more than once, thus this function

@@ -138,7 +138,7 @@ func (mc *mysqlConn) begin(ctx context.Context, readOnly bool) (driver.Tx, error
 }
 
 func (mc *mysqlConn) Close() (err error) {
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	// Makes Close idempotent
 	if !mc.closed.Load() {
