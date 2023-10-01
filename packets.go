@@ -1182,9 +1182,7 @@ func (mc *okHandler) discardResults(ctx context.Context) error {
 }
 
 // http://dev.mysql.com/doc/internals/en/binary-protocol-resultset-row.html
-func (rows *binaryRows) readRow(dest []driver.Value) error {
-	ctx := context.TODO()
-
+func (rows *binaryRows) readRow(ctx context.Context, dest []driver.Value) error {
 	data, err := rows.mc.readPacket(ctx)
 	if err != nil {
 		return err
