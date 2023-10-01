@@ -181,39 +181,7 @@ func (mc *mysqlConn) error() error {
 }
 
 func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
-	ctx := context.TODO()
-
-	if mc.closed.Load() {
-		mc.cfg.Logger.Print(ErrInvalidConn)
-		return nil, driver.ErrBadConn
-	}
-	// Send command
-	err := mc.writeCommandPacketStr(ctx, comStmtPrepare, query)
-	if err != nil {
-		// STMT_PREPARE is safe to retry.  So we can return ErrBadConn here.
-		mc.cfg.Logger.Print(err)
-		return nil, driver.ErrBadConn
-	}
-
-	stmt := &mysqlStmt{
-		mc: mc,
-	}
-
-	// Read Result
-	columnCount, err := stmt.readPrepareResultPacket(ctx)
-	if err == nil {
-		if stmt.paramCount > 0 {
-			if err = mc.readUntilEOF(ctx); err != nil {
-				return nil, err
-			}
-		}
-
-		if columnCount > 0 {
-			err = mc.readUntilEOF(ctx)
-		}
-	}
-
-	return stmt, err
+	return mc.PrepareContext(context.Background(), query)
 }
 
 func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (string, error) {
@@ -509,7 +477,37 @@ func (mc *mysqlConn) ExecContext(ctx context.Context, query string, args []drive
 }
 
 func (mc *mysqlConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	return mc.Prepare(query)
+	if mc.closed.Load() {
+		mc.cfg.Logger.Print(ErrInvalidConn)
+		return nil, driver.ErrBadConn
+	}
+	// Send command
+	err := mc.writeCommandPacketStr(ctx, comStmtPrepare, query)
+	if err != nil {
+		// STMT_PREPARE is safe to retry.  So we can return ErrBadConn here.
+		mc.cfg.Logger.Print(err)
+		return nil, driver.ErrBadConn
+	}
+
+	stmt := &mysqlStmt{
+		mc: mc,
+	}
+
+	// Read Result
+	columnCount, err := stmt.readPrepareResultPacket(ctx)
+	if err == nil {
+		if stmt.paramCount > 0 {
+			if err = mc.readUntilEOF(ctx); err != nil {
+				return nil, err
+			}
+		}
+
+		if columnCount > 0 {
+			err = mc.readUntilEOF(ctx)
+		}
+	}
+
+	return stmt, err
 }
 
 func (stmt *mysqlStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
