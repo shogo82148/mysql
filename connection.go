@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+type readResult struct {
+	data []byte
+	err  error
+}
+
 type writeResult struct {
 	n   int
 	err error
@@ -49,6 +54,7 @@ type mysqlConn struct {
 	canceled atomicError // set non-nil if conn is canceled
 	closed   atomicBool  // set when conn is closed, before closech is closed
 
+	readResult  chan readResult
 	writeCh     chan []byte
 	writeResult chan writeResult
 }

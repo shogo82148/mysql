@@ -74,6 +74,9 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		cfg:              c.cfg,
 		connector:        c,
 
+		// buffered channel to serialize reads from the underlying net.Conn
+		readResult: make(chan readResult, 1),
+
 		// buffered channel to serialize writes to the underlying net.Conn
 		writeCh: make(chan []byte, 1),
 

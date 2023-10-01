@@ -27,68 +27,8 @@ import (
 
 // Read packet to buffer 'data'
 func (mc *mysqlConn) readPacket() ([]byte, error) {
-	var prevData []byte
-	for {
-		// read packet header
-		data, err := mc.buf.readNext(4)
-		if err != nil {
-			if cerr := mc.canceled.Value(); cerr != nil {
-				return nil, cerr
-			}
-			mc.cfg.Logger.Print(err)
-			mc.Close()
-			return nil, ErrInvalidConn
-		}
-
-		// packet length [24 bit]
-		pktLen := int(uint32(data[0]) | uint32(data[1])<<8 | uint32(data[2])<<16)
-
-		// check packet sync [8 bit]
-		if data[3] != mc.sequence {
-			mc.Close()
-			if data[3] > mc.sequence {
-				return nil, ErrPktSyncMul
-			}
-			return nil, ErrPktSync
-		}
-		mc.sequence++
-
-		// packets with length 0 terminate a previous packet which is a
-		// multiple of (2^24)-1 bytes long
-		if pktLen == 0 {
-			// there was no previous packet
-			if prevData == nil {
-				mc.cfg.Logger.Print(ErrMalformPkt)
-				mc.Close()
-				return nil, ErrInvalidConn
-			}
-
-			return prevData, nil
-		}
-
-		// read packet body [pktLen bytes]
-		data, err = mc.buf.readNext(pktLen)
-		if err != nil {
-			if cerr := mc.canceled.Value(); cerr != nil {
-				return nil, cerr
-			}
-			mc.cfg.Logger.Print(err)
-			mc.Close()
-			return nil, ErrInvalidConn
-		}
-
-		// return data if this was the last packet
-		if pktLen < maxPacketSize {
-			// zero allocations for non-split packets
-			if prevData == nil {
-				return data, nil
-			}
-
-			return append(prevData, data...), nil
-		}
-
-		prevData = append(prevData, data...)
-	}
+	result := <-mc.readResult
+	return result.data, result.err
 }
 
 // Write packet buffer 'data'
@@ -99,34 +39,6 @@ func (mc *mysqlConn) writePacket(data []byte) error {
 
 	if pktLen > mc.maxAllowedPacket {
 		return ErrPktTooLarge
-	}
-
-	// Perform a stale connection check. We only perform this check for
-	// the first query on a connection that has been checked out of the
-	// connection pool: a fresh connection from the pool is more likely
-	// to be stale, and it has not performed any previous writes that
-	// could cause data corruption, so it's safe to return ErrBadConn
-	// if the check fails.
-	if mc.reset {
-		mc.reset = false
-		conn := mc.netConn
-		if mc.rawConn != nil {
-			conn = mc.rawConn
-		}
-		var err error
-		if mc.cfg.CheckConnLiveness {
-			if mc.cfg.ReadTimeout != 0 {
-				err = conn.SetReadDeadline(time.Now().Add(mc.cfg.ReadTimeout))
-			}
-			if err == nil {
-				err = connCheck(conn)
-			}
-		}
-		if err != nil {
-			mc.cfg.Logger.Print("closing bad idle connection: ", err)
-			mc.Close()
-			return driver.ErrBadConn
-		}
 	}
 
 	for {
@@ -1447,7 +1359,69 @@ func (rows *binaryRows) readRow(dest []driver.Value) error {
 }
 
 func (mc *mysqlConn) startReader() {
-	// TODO: implement me
+	for {
+		data, err := mc.readPacketInReader()
+		select {
+		case mc.readResult <- readResult{data: data, err: err}:
+		case <-mc.closech:
+			return
+		}
+	}
+}
+
+func (mc *mysqlConn) readPacketInReader() ([]byte, error) {
+	var prevData []byte
+	for {
+		// read packet header
+		var header [4]byte
+		if _, err := io.ReadFull(mc.netConn, header[:]); err != nil {
+			return nil, err
+		}
+
+		// packet length [24 bit]
+		pktLen := int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
+
+		// check packet sync [8 bit]
+		if header[3] != mc.sequence {
+			mc.Close()
+			if header[3] > mc.sequence {
+				return nil, ErrPktSyncMul
+			}
+			return nil, ErrPktSync
+		}
+		mc.sequence++
+
+		// packets with length 0 terminate a previous packet which is a
+		// multiple of (2^24)-1 bytes long
+		if pktLen == 0 {
+			// there was no previous packet
+			if prevData == nil {
+				mc.cfg.Logger.Print(ErrMalformPkt)
+				mc.Close()
+				return nil, ErrInvalidConn
+			}
+
+			return prevData, nil
+		}
+
+		// read packet body [pktLen bytes]
+		data := make([]byte, pktLen)
+		if _, err := io.ReadFull(mc.netConn, data); err != nil {
+			return nil, err
+		}
+
+		// return data if this was the last packet
+		if pktLen < maxPacketSize {
+			// zero allocations for non-split packets
+			if prevData == nil {
+				return data, nil
+			}
+
+			return append(prevData, data...), nil
+		}
+
+		prevData = append(prevData, data...)
+	}
 }
 
 func (mc *mysqlConn) startWriter() {
