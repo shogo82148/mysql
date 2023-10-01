@@ -463,9 +463,7 @@ func (mc *mysqlConn) readAuthResult(ctx context.Context) ([]byte, string, error)
 }
 
 // Returns error if Packet is not an 'Result OK'-Packet
-func (mc *okHandler) readResultOK() error {
-	ctx := context.TODO()
-
+func (mc *okHandler) readResultOK(ctx context.Context) error {
 	data, err := mc.conn().readPacket(ctx)
 	if err != nil {
 		return err
