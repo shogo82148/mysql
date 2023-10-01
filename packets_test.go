@@ -108,7 +108,15 @@ func newRWMockConn(sequence uint8) (*mockConn, *mysqlConn) {
 		closech:          make(chan struct{}),
 		maxAllowedPacket: defaultMaxAllowedPacket,
 		sequence:         sequence,
+
+		// buffered channel to serialize writes to the underlying net.Conn
+		writeCh: make(chan []byte, 1),
+
+		// it is used for syncing write operations; it must not be buffered.
+		writeResult: make(chan writeResult),
 	}
+	go mc.startReader()
+	go mc.startWriter()
 	return conn, mc
 }
 
