@@ -45,6 +45,7 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 
 		// check packet sync [8 bit]
 		if data[3] != mc.sequence {
+			mc.Close()
 			if data[3] > mc.sequence {
 				return nil, ErrPktSyncMul
 			}
@@ -582,12 +583,9 @@ func (mc *okHandler) readResultSetHeaderPacket() (int, error) {
 		}
 
 		// column count
-		num, _, n := readLengthEncodedInteger(data)
-		if n-len(data) == 0 {
-			return int(num), nil
-		}
-
-		return 0, ErrMalformPkt
+		num, _, _ := readLengthEncodedInteger(data)
+		// ignore remaining data in the packet. see #1478.
+		return int(num), nil
 	}
 	return 0, err
 }
