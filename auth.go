@@ -226,9 +226,7 @@ func encryptPassword(password string, seed []byte, pub *rsa.PublicKey) ([]byte, 
 	return rsa.EncryptOAEP(sha1, rand.Reader, pub, plain, nil)
 }
 
-func (mc *mysqlConn) sendEncryptedPassword(seed []byte, pub *rsa.PublicKey) error {
-	ctx := context.TODO()
-
+func (mc *mysqlConn) sendEncryptedPassword(ctx context.Context, seed []byte, pub *rsa.PublicKey) error {
 	enc, err := encryptPassword(mc.cfg.Passwd, seed, pub)
 	if err != nil {
 		return err
@@ -395,7 +393,7 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 					}
 
 					// send encrypted password
-					err = mc.sendEncryptedPassword(oldAuthData, pubKey)
+					err = mc.sendEncryptedPassword(ctx, oldAuthData, pubKey)
 					if err != nil {
 						return err
 					}
@@ -425,7 +423,7 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 			}
 
 			// send encrypted password
-			err = mc.sendEncryptedPassword(oldAuthData, pub.(*rsa.PublicKey))
+			err = mc.sendEncryptedPassword(ctx, oldAuthData, pub.(*rsa.PublicKey))
 			if err != nil {
 				return err
 			}
