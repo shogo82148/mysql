@@ -340,11 +340,10 @@ func (mc *mysqlConn) exec(ctx context.Context, query string) error {
 }
 
 func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, error) {
-	return mc.query(query, args)
+	return mc.query(context.Background(), query, args)
 }
 
-func (mc *mysqlConn) query(query string, args []driver.Value) (*textRows, error) {
-	ctx := context.TODO()
+func (mc *mysqlConn) query(ctx context.Context, query string, args []driver.Value) (*textRows, error) {
 	handleOk := mc.clearResult()
 
 	if mc.closed.Load() {
@@ -462,7 +461,7 @@ func (mc *mysqlConn) QueryContext(ctx context.Context, query string, args []driv
 	if err != nil {
 		return nil, err
 	}
-	return mc.query(query, dargs)
+	return mc.query(ctx, query, dargs)
 }
 
 func (mc *mysqlConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
