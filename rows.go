@@ -23,9 +23,9 @@ type resultSet struct {
 }
 
 type mysqlRows struct {
-	mc     *mysqlConn
-	rs     resultSet
-	finish func()
+	ctx context.Context
+	mc  *mysqlConn
+	rs  resultSet
 }
 
 type binaryRows struct {
@@ -99,12 +99,7 @@ func (rows *mysqlRows) ColumnTypeScanType(i int) reflect.Type {
 }
 
 func (rows *mysqlRows) Close() (err error) {
-	ctx := context.TODO()
-
-	if f := rows.finish; f != nil {
-		f()
-		rows.finish = nil
-	}
+	ctx := rows.ctx
 
 	mc := rows.mc
 	if mc == nil {
@@ -144,7 +139,7 @@ func (rows *mysqlRows) HasNextResultSet() (b bool) {
 }
 
 func (rows *mysqlRows) nextResultSet() (int, error) {
-	ctx := context.TODO()
+	ctx := rows.ctx
 
 	if rows.mc == nil {
 		return 0, io.EOF
@@ -187,7 +182,7 @@ func (rows *mysqlRows) nextNotEmptyResultSet() (int, error) {
 }
 
 func (rows *binaryRows) NextResultSet() error {
-	ctx := context.TODO()
+	ctx := rows.ctx
 
 	resLen, err := rows.nextNotEmptyResultSet()
 	if err != nil {
@@ -199,7 +194,7 @@ func (rows *binaryRows) NextResultSet() error {
 }
 
 func (rows *binaryRows) Next(dest []driver.Value) error {
-	ctx := context.TODO()
+	ctx := rows.ctx
 
 	if mc := rows.mc; mc != nil {
 		if err := mc.error(); err != nil {
@@ -213,7 +208,7 @@ func (rows *binaryRows) Next(dest []driver.Value) error {
 }
 
 func (rows *textRows) NextResultSet() (err error) {
-	ctx := context.TODO()
+	ctx := rows.ctx
 
 	resLen, err := rows.nextNotEmptyResultSet()
 	if err != nil {
@@ -225,7 +220,7 @@ func (rows *textRows) NextResultSet() (err error) {
 }
 
 func (rows *textRows) Next(dest []driver.Value) error {
-	ctx := context.TODO()
+	ctx := rows.ctx
 
 	if mc := rows.mc; mc != nil {
 		if err := mc.error(); err != nil {

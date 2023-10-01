@@ -124,6 +124,7 @@ func (stmt *mysqlStmt) query(ctx context.Context, args []driver.Value) (*binaryR
 
 	if resLen > 0 {
 		rows.mc = mc
+		rows.ctx = ctx
 		rows.rs.columns, err = mc.readColumns(ctx, resLen)
 	} else {
 		rows.rs.done = true

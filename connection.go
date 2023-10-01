@@ -370,6 +370,7 @@ func (mc *mysqlConn) query(ctx context.Context, query string, args []driver.Valu
 		if err == nil {
 			rows := new(textRows)
 			rows.mc = mc
+			rows.ctx = ctx
 
 			if resLen == 0 {
 				rows.rs.done = true
@@ -404,6 +405,7 @@ func (mc *mysqlConn) getSystemVar(ctx context.Context, name string) ([]byte, err
 	if err == nil {
 		rows := new(textRows)
 		rows.mc = mc
+		rows.ctx = ctx
 		rows.rs.columns = []mysqlField{{fieldType: fieldTypeVarChar}}
 
 		if resLen > 0 {
