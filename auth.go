@@ -9,6 +9,7 @@
 package mysql
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -297,6 +298,8 @@ func (mc *mysqlConn) auth(authData []byte, plugin string) ([]byte, error) {
 }
 
 func (mc *mysqlConn) handleAuthResult(oldAuthData []byte, plugin string) error {
+	ctx := context.TODO()
+
 	// Read Result Packet
 	authData, newPlugin, err := mc.readAuthResult()
 	if err != nil {
@@ -366,17 +369,17 @@ func (mc *mysqlConn) handleAuthResult(oldAuthData []byte, plugin string) error {
 							return err
 						}
 						data[4] = cachingSha2PasswordRequestPublicKey
-						err = mc.writePacket(data)
+						err = mc.writePacket(ctx, data)
 						if err != nil {
 							return err
 						}
 
-						if data, err = mc.readPacket(); err != nil {
+						if data, err = mc.readPacket(ctx); err != nil {
 							return err
 						}
 
 						if data[0] != iAuthMoreData {
-							return fmt.Errorf("unexpect resp from server for caching_sha2_password perform full authentication")
+							return fmt.Errorf("unexpected resp from server for caching_sha2_password perform full authentication")
 						}
 
 						// parse public key

@@ -10,6 +10,7 @@ package mysql
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net"
 	"testing"
@@ -130,7 +131,7 @@ func TestReadPacketSingleByte(t *testing.T) {
 
 	conn.data = []byte{0x01, 0x00, 0x00, 0x00, 0xff}
 	conn.maxReads = 1
-	packet, err := mc.readPacket()
+	packet, err := mc.readPacket(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +164,7 @@ func TestReadPacketWrongSequenceID(t *testing.T) {
 		conn, mc := newRWMockConn(testCase.ClientSequenceID)
 
 		conn.data = []byte{0x01, 0x00, 0x00, testCase.ServerSequenceID, 0xff}
-		_, err := mc.readPacket()
+		_, err := mc.readPacket(context.Background())
 		if err != testCase.ExpectedErr {
 			t.Errorf("expected %v, got %v", testCase.ExpectedErr, err)
 		}
@@ -177,6 +178,8 @@ func TestReadPacketWrongSequenceID(t *testing.T) {
 
 func TestReadPacketSplit(t *testing.T) {
 	t.Skip("TODO: fix this test")
+
+	ctx := context.Background()
 
 	conn := new(mockConn)
 	mc := &mysqlConn{
@@ -201,13 +204,13 @@ func TestReadPacketSplit(t *testing.T) {
 	data[4] = 0x11
 	data[maxPacketSize+3] = 0x22
 
-	// 2nd packet has payload length 0 and squence id 1
+	// 2nd packet has payload length 0 and sequence id 1
 	// 00 00 00 01
 	data[pkt2ofs+3] = 0x01
 
 	conn.data = data
 	conn.maxReads = 3
-	packet, err := mc.readPacket()
+	packet, err := mc.readPacket(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +236,7 @@ func TestReadPacketSplit(t *testing.T) {
 	data[pkt2ofs+4] = 0x33
 	data[pkt2ofs+maxPacketSize+3] = 0x44
 
-	// 3rd packet has payload length 0 and squence id 2
+	// 3rd packet has payload length 0 and sequence id 2
 	// 00 00 00 02
 	data[pkt3ofs+3] = 0x02
 
@@ -241,7 +244,7 @@ func TestReadPacketSplit(t *testing.T) {
 	conn.reads = 0
 	conn.maxReads = 5
 	mc.sequence = 0
-	packet, err = mc.readPacket()
+	packet, err = mc.readPacket(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +270,7 @@ func TestReadPacketSplit(t *testing.T) {
 	conn.reads = 0
 	conn.maxReads = 4
 	mc.sequence = 0
-	packet, err = mc.readPacket()
+	packet, err = mc.readPacket(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,6 +288,8 @@ func TestReadPacketSplit(t *testing.T) {
 func TestReadPacketFail(t *testing.T) {
 	t.Skip("TODO: fix this test")
 
+	ctx := context.Background()
+
 	conn := new(mockConn)
 	mc := &mysqlConn{
 		buf:     newBuffer(conn),
@@ -295,7 +300,7 @@ func TestReadPacketFail(t *testing.T) {
 	// illegal empty (stand-alone) packet
 	conn.data = []byte{0x00, 0x00, 0x00, 0x00}
 	conn.maxReads = 1
-	_, err := mc.readPacket()
+	_, err := mc.readPacket(ctx)
 	if err != ErrInvalidConn {
 		t.Errorf("expected ErrInvalidConn, got %v", err)
 	}
@@ -307,7 +312,7 @@ func TestReadPacketFail(t *testing.T) {
 
 	// fail to read header
 	conn.closed = true
-	_, err = mc.readPacket()
+	_, err = mc.readPacket(ctx)
 	if err != ErrInvalidConn {
 		t.Errorf("expected ErrInvalidConn, got %v", err)
 	}
@@ -320,7 +325,7 @@ func TestReadPacketFail(t *testing.T) {
 
 	// fail to read body
 	conn.maxReads = 1
-	_, err = mc.readPacket()
+	_, err = mc.readPacket(ctx)
 	if err != ErrInvalidConn {
 		t.Errorf("expected ErrInvalidConn, got %v", err)
 	}
