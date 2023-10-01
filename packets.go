@@ -10,6 +10,7 @@ package mysql
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"database/sql/driver"
 	"encoding/binary"
@@ -91,6 +92,8 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 
 // Write packet buffer 'data'
 func (mc *mysqlConn) writePacket(data []byte) error {
+	ctx := context.TODO()
+
 	pktLen := len(data) - 4
 
 	if pktLen > mc.maxAllowedPacket {
@@ -141,13 +144,20 @@ func (mc *mysqlConn) writePacket(data []byte) error {
 		data[3] = mc.sequence
 
 		// Write packet
-		if mc.writeTimeout > 0 {
-			if err := mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout)); err != nil {
-				return err
-			}
+		select {
+		case mc.writeCh <- data[:4+size]:
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 
-		n, err := mc.netConn.Write(data[:4+size])
+		var ret writeResult
+		select {
+		case ret = <-mc.writeResult:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		n, err := ret.n, ret.err
+
 		if err == nil && n == 4+size {
 			mc.sequence++
 			if size != maxPacketSize {
@@ -1436,4 +1446,36 @@ func (rows *binaryRows) readRow(dest []driver.Value) error {
 	}
 
 	return nil
+}
+
+func (mc *mysqlConn) startReader() {
+	// TODO: implement me
+}
+
+func (mc *mysqlConn) startWriter() {
+	for {
+		var data []byte
+		select {
+		case data = <-mc.writeCh:
+		case <-mc.closech:
+			return
+		}
+
+		n, err := mc.writePacketInWriter(data)
+		select {
+		case mc.writeResult <- writeResult{n: n, err: err}:
+		case <-mc.closech:
+			return
+		}
+	}
+}
+
+func (mc *mysqlConn) writePacketInWriter(data []byte) (n int, err error) {
+	if mc.writeTimeout > 0 {
+		err = mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout))
+		if err != nil {
+			return
+		}
+	}
+	return mc.netConn.Write(data)
 }
