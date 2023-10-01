@@ -368,7 +368,7 @@ func (mc *mysqlConn) exec(query string) error {
 		}
 	}
 
-	return handleOk.discardResults()
+	return handleOk.discardResults(ctx)
 }
 
 func (mc *mysqlConn) Query(query string, args []driver.Value) (driver.Rows, error) {

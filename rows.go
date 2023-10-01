@@ -127,7 +127,7 @@ func (rows *mysqlRows) Close() (err error) {
 	}
 	if err == nil {
 		handleOk := mc.clearResult()
-		if err = handleOk.discardResults(); err != nil {
+		if err = handleOk.discardResults(ctx); err != nil {
 			return err
 		}
 	}
