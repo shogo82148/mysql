@@ -916,9 +916,7 @@ func (stmt *mysqlStmt) writeCommandLongData(ctx context.Context, paramID int, ar
 
 // Execute Prepared Statement
 // http://dev.mysql.com/doc/internals/en/com-stmt-execute.html
-func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
-	ctx := context.TODO()
-
+func (stmt *mysqlStmt) writeExecutePacket(ctx context.Context, args []driver.Value) error {
 	if len(args) != stmt.paramCount {
 		return fmt.Errorf(
 			"argument count mismatch (got: %d; has: %d)",
