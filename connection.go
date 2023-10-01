@@ -138,9 +138,11 @@ func (mc *mysqlConn) begin(readOnly bool) (driver.Tx, error) {
 }
 
 func (mc *mysqlConn) Close() (err error) {
+	ctx := context.TODO()
+
 	// Makes Close idempotent
 	if !mc.closed.Load() {
-		err = mc.writeCommandPacket(comQuit)
+		err = mc.writeCommandPacket(ctx, comQuit)
 	}
 
 	mc.cleanup()
@@ -455,7 +457,7 @@ func (mc *mysqlConn) Ping(ctx context.Context) (err error) {
 	}
 
 	handleOk := mc.clearResult()
-	if err = mc.writeCommandPacket(comPing); err != nil {
+	if err = mc.writeCommandPacket(ctx, comPing); err != nil {
 		return mc.markBadConn(err)
 	}
 
