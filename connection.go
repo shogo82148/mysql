@@ -200,7 +200,7 @@ func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 	}
 
 	// Read Result
-	columnCount, err := stmt.readPrepareResultPacket()
+	columnCount, err := stmt.readPrepareResultPacket(ctx)
 	if err == nil {
 		if stmt.paramCount > 0 {
 			if err = mc.readUntilEOF(ctx); err != nil {
