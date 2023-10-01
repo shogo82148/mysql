@@ -99,6 +99,8 @@ func (rows *mysqlRows) ColumnTypeScanType(i int) reflect.Type {
 }
 
 func (rows *mysqlRows) Close() (err error) {
+	ctx := context.TODO()
+
 	if f := rows.finish; f != nil {
 		f()
 		rows.finish = nil
@@ -121,7 +123,7 @@ func (rows *mysqlRows) Close() (err error) {
 
 	// Remove unread packets from stream
 	if !rows.rs.done {
-		err = mc.readUntilEOF()
+		err = mc.readUntilEOF(ctx)
 	}
 	if err == nil {
 		handleOk := mc.clearResult()
@@ -153,7 +155,7 @@ func (rows *mysqlRows) nextResultSet() (int, error) {
 
 	// Remove unread packets from stream
 	if !rows.rs.done {
-		if err := rows.mc.readUntilEOF(); err != nil {
+		if err := rows.mc.readUntilEOF(ctx); err != nil {
 			return 0, err
 		}
 		rows.rs.done = true

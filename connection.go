@@ -203,13 +203,13 @@ func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 	columnCount, err := stmt.readPrepareResultPacket()
 	if err == nil {
 		if stmt.paramCount > 0 {
-			if err = mc.readUntilEOF(); err != nil {
+			if err = mc.readUntilEOF(ctx); err != nil {
 				return nil, err
 			}
 		}
 
 		if columnCount > 0 {
-			err = mc.readUntilEOF()
+			err = mc.readUntilEOF(ctx)
 		}
 	}
 
@@ -358,12 +358,12 @@ func (mc *mysqlConn) exec(query string) error {
 
 	if resLen > 0 {
 		// columns
-		if err := mc.readUntilEOF(); err != nil {
+		if err := mc.readUntilEOF(ctx); err != nil {
 			return err
 		}
 
 		// rows
-		if err := mc.readUntilEOF(); err != nil {
+		if err := mc.readUntilEOF(ctx); err != nil {
 			return err
 		}
 	}
@@ -443,14 +443,14 @@ func (mc *mysqlConn) getSystemVar(name string) ([]byte, error) {
 
 		if resLen > 0 {
 			// Columns
-			if err := mc.readUntilEOF(); err != nil {
+			if err := mc.readUntilEOF(ctx); err != nil {
 				return nil, err
 			}
 		}
 
 		dest := make([]driver.Value, resLen)
 		if err = rows.readRow(ctx, dest); err == nil {
-			return dest[0].([]byte), mc.readUntilEOF()
+			return dest[0].([]byte), mc.readUntilEOF(ctx)
 		}
 	}
 	return nil, err

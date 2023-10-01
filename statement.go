@@ -53,6 +53,8 @@ func (stmt *mysqlStmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 }
 
 func (stmt *mysqlStmt) Exec(args []driver.Value) (driver.Result, error) {
+	ctx := context.TODO()
+
 	if stmt.mc.closed.Load() {
 		stmt.mc.cfg.Logger.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn
@@ -74,12 +76,12 @@ func (stmt *mysqlStmt) Exec(args []driver.Value) (driver.Result, error) {
 
 	if resLen > 0 {
 		// Columns
-		if err = mc.readUntilEOF(); err != nil {
+		if err = mc.readUntilEOF(ctx); err != nil {
 			return nil, err
 		}
 
 		// Rows
-		if err := mc.readUntilEOF(); err != nil {
+		if err := mc.readUntilEOF(ctx); err != nil {
 			return nil, err
 		}
 	}
