@@ -53,8 +53,10 @@ func (stmt *mysqlStmt) CheckNamedValue(nv *driver.NamedValue) (err error) {
 }
 
 func (stmt *mysqlStmt) Exec(args []driver.Value) (driver.Result, error) {
-	ctx := context.TODO()
+	return stmt.exec(context.Background(), args)
+}
 
+func (stmt *mysqlStmt) exec(ctx context.Context, args []driver.Value) (driver.Result, error) {
 	if stmt.mc.closed.Load() {
 		stmt.mc.cfg.Logger.Print(ErrInvalidConn)
 		return nil, driver.ErrBadConn

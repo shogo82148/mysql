@@ -512,8 +512,7 @@ func (stmt *mysqlStmt) QueryContext(ctx context.Context, args []driver.NamedValu
 	if err != nil {
 		return nil, err
 	}
-
-	return stmt.query(dargs)
+	return stmt.query(ctx, dargs)
 }
 
 func (stmt *mysqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
@@ -521,8 +520,7 @@ func (stmt *mysqlStmt) ExecContext(ctx context.Context, args []driver.NamedValue
 	if err != nil {
 		return nil, err
 	}
-
-	return stmt.Exec(dargs)
+	return stmt.exec(ctx, dargs)
 }
 
 func (mc *mysqlConn) CheckNamedValue(nv *driver.NamedValue) (err error) {
