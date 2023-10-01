@@ -9,6 +9,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql/driver"
 	"io"
 	"math"
@@ -141,6 +142,8 @@ func (rows *mysqlRows) HasNextResultSet() (b bool) {
 }
 
 func (rows *mysqlRows) nextResultSet() (int, error) {
+	ctx := context.TODO()
+
 	if rows.mc == nil {
 		return 0, io.EOF
 	}
@@ -163,7 +166,7 @@ func (rows *mysqlRows) nextResultSet() (int, error) {
 	rows.rs = resultSet{}
 	// rows.mc.affectedRows and rows.mc.insertIds accumulate on each call to
 	// nextResultSet.
-	return rows.mc.resultUnchanged().readResultSetHeaderPacket()
+	return rows.mc.resultUnchanged().readResultSetHeaderPacket(ctx)
 }
 
 func (rows *mysqlRows) nextNotEmptyResultSet() (int, error) {

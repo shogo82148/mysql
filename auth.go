@@ -349,7 +349,7 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 		case 1:
 			switch authData[0] {
 			case cachingSha2PasswordFastAuthSuccess:
-				if err = mc.resultUnchanged().readResultOK(); err == nil {
+				if err = mc.resultUnchanged().readResultOK(ctx); err == nil {
 					return nil // auth successful
 				}
 
@@ -400,7 +400,7 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 						return err
 					}
 				}
-				return mc.resultUnchanged().readResultOK()
+				return mc.resultUnchanged().readResultOK(ctx)
 
 			default:
 				return ErrMalformPkt
@@ -429,7 +429,7 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 			if err != nil {
 				return err
 			}
-			return mc.resultUnchanged().readResultOK()
+			return mc.resultUnchanged().readResultOK(ctx)
 		}
 
 	default:
