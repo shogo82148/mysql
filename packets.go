@@ -863,9 +863,7 @@ func (stmt *mysqlStmt) readPrepareResultPacket(ctx context.Context) (uint16, err
 }
 
 // http://dev.mysql.com/doc/internals/en/com-stmt-send-long-data.html
-func (stmt *mysqlStmt) writeCommandLongData(paramID int, arg []byte) error {
-	ctx := context.TODO()
-
+func (stmt *mysqlStmt) writeCommandLongData(ctx context.Context, paramID int, arg []byte) error {
 	maxLen := stmt.mc.maxAllowedPacket - 1
 	pktLen := maxLen
 
@@ -1093,7 +1091,7 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 						)
 						paramValues = append(paramValues, v...)
 					} else {
-						if err := stmt.writeCommandLongData(i, v); err != nil {
+						if err := stmt.writeCommandLongData(ctx, i, v); err != nil {
 							return err
 						}
 					}
@@ -1115,7 +1113,7 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 					)
 					paramValues = append(paramValues, v...)
 				} else {
-					if err := stmt.writeCommandLongData(i, []byte(v)); err != nil {
+					if err := stmt.writeCommandLongData(ctx, i, []byte(v)); err != nil {
 						return err
 					}
 				}
