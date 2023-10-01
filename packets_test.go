@@ -351,7 +351,7 @@ func TestRegression801(t *testing.T) {
 		112, 97, 115, 115, 119, 111, 114, 100}
 	conn.maxReads = 1
 
-	authData, pluginName, err := mc.readHandshakePacket()
+	authData, pluginName, err := mc.readHandshakePacket(context.Background())
 	if err != nil {
 		t.Fatalf("got error: %v", err)
 	}
