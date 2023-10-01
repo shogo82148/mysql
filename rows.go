@@ -221,13 +221,15 @@ func (rows *textRows) NextResultSet() (err error) {
 }
 
 func (rows *textRows) Next(dest []driver.Value) error {
+	ctx := context.TODO()
+
 	if mc := rows.mc; mc != nil {
 		if err := mc.error(); err != nil {
 			return err
 		}
 
 		// Fetch next row from stream
-		return rows.readRow(dest)
+		return rows.readRow(ctx, dest)
 	}
 	return io.EOF
 }

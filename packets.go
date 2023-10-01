@@ -721,9 +721,7 @@ func (mc *mysqlConn) readColumns(ctx context.Context, count int) ([]mysqlField, 
 
 // Read Packets as Field Packets until EOF-Packet or an Error appears
 // http://dev.mysql.com/doc/internals/en/com-query-response.html#packet-ProtocolText::ResultsetRow
-func (rows *textRows) readRow(dest []driver.Value) error {
-	ctx := context.TODO()
-
+func (rows *textRows) readRow(ctx context.Context, dest []driver.Value) error {
 	mc := rows.mc
 
 	if rows.rs.done {

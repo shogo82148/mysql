@@ -449,7 +449,7 @@ func (mc *mysqlConn) getSystemVar(name string) ([]byte, error) {
 		}
 
 		dest := make([]driver.Value, resLen)
-		if err = rows.readRow(dest); err == nil {
+		if err = rows.readRow(ctx, dest); err == nil {
 			return dest[0].([]byte), mc.readUntilEOF()
 		}
 	}
