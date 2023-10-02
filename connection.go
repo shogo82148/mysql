@@ -50,7 +50,7 @@ type mysqlConn struct {
 	// for context support (Go 1.8+)
 	closech  chan struct{}
 	canceled atomicError // set non-nil if conn is canceled
-	closed   atomicBool  // set when conn is closed, before closech is closed
+	closed   atomic.Bool // set when conn is closed, before closech is closed
 
 	readResult  chan readResult
 	writeCh     chan []byte
