@@ -27,6 +27,11 @@ import (
 
 // Read packet to buffer 'data'
 func (mc *mysqlConn) readPacket(ctx context.Context) ([]byte, error) {
+	if mc.cfg.ReadTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, mc.cfg.ReadTimeout)
+		defer cancel()
+	}
 	select {
 	case result := <-mc.readResult:
 		return result.data, result.err
@@ -37,69 +42,19 @@ func (mc *mysqlConn) readPacket(ctx context.Context) ([]byte, error) {
 
 // Write packet buffer 'data'
 func (mc *mysqlConn) writePacket(ctx context.Context, data []byte) error {
-	pktLen := len(data) - 4
-
-	if pktLen > mc.maxAllowedPacket {
-		return ErrPktTooLarge
+	select {
+	case mc.writeCh <- data:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
-	for {
-		var size int
-		if pktLen >= maxPacketSize {
-			data[0] = 0xff
-			data[1] = 0xff
-			data[2] = 0xff
-			size = maxPacketSize
-		} else {
-			data[0] = byte(pktLen)
-			data[1] = byte(pktLen >> 8)
-			data[2] = byte(pktLen >> 16)
-			size = pktLen
-		}
-		data[3] = mc.sequence
-
-		// Write packet
-		select {
-		case mc.writeCh <- data[:4+size]:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		var ret writeResult
-		select {
-		case ret = <-mc.writeResult:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-		n, err := ret.n, ret.err
-
-		if err == nil && n == 4+size {
-			mc.sequence++
-			if size != maxPacketSize {
-				return nil
-			}
-			pktLen -= size
-			data = data[size:]
-			continue
-		}
-
-		// Handle error
-		if err == nil { // n != len(data)
-			mc.cleanup()
-			mc.cfg.Logger.Print(ErrMalformPkt)
-		} else {
-			if cerr := mc.canceled.Value(); cerr != nil {
-				return cerr
-			}
-			if n == 0 && pktLen == len(data)-4 {
-				// only for the first loop iteration when nothing was written yet
-				return errBadConnNoWrite
-			}
-			mc.cleanup()
-			mc.cfg.Logger.Print(err)
-		}
-		return ErrInvalidConn
+	var ret writeResult
+	select {
+	case ret = <-mc.writeResult:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+	return ret.err
 }
 
 /******************************************************************************
@@ -109,7 +64,7 @@ func (mc *mysqlConn) writePacket(ctx context.Context, data []byte) error {
 // Handshake Initialization Packet
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
 func (mc *mysqlConn) readHandshakePacket(ctx context.Context) (data []byte, plugin string, err error) {
-	data, err = mc.readPacket(ctx)
+	data, err = mc.readPacketInReader()
 	if err != nil {
 		// for init we can rewrite this to ErrBadConn for sql.Driver to retry, since
 		// in connection initialization we don't risk retrying non-idempotent actions.
@@ -295,7 +250,7 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(ctx context.Context, authResp 
 	// http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::SSLRequest
 	if mc.cfg.TLS != nil {
 		// Send TLS / SSL request packet
-		if err := mc.writePacket(ctx, data[:(4+4+1+23)+4]); err != nil {
+		if _, err := mc.writePacketInWriter(data[:(4+4+1+23)+4]); err != nil {
 			return err
 		}
 
@@ -337,7 +292,8 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(ctx context.Context, authResp 
 	pos += copy(data[pos:], []byte(mc.connector.encodedAttributes))
 
 	// Send Auth packet
-	return mc.writePacket(ctx, data[:pos])
+	_, err = mc.writePacketInWriter(data[:pos])
+	return err
 }
 
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchResponse
@@ -1445,11 +1401,62 @@ func (mc *mysqlConn) startWriter() {
 }
 
 func (mc *mysqlConn) writePacketInWriter(data []byte) (n int, err error) {
-	if mc.writeTimeout > 0 {
-		err = mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout))
-		if err != nil {
-			return
-		}
+	pktLen := len(data) - 4
+
+	if pktLen > mc.maxAllowedPacket {
+		return 0, ErrPktTooLarge
 	}
-	return mc.netConn.Write(data)
+
+	for {
+		var size int
+		if pktLen >= maxPacketSize {
+			data[0] = 0xff
+			data[1] = 0xff
+			data[2] = 0xff
+			size = maxPacketSize
+		} else {
+			data[0] = byte(pktLen)
+			data[1] = byte(pktLen >> 8)
+			data[2] = byte(pktLen >> 16)
+			size = pktLen
+		}
+		data[3] = mc.sequence
+
+		// set timeout
+		if mc.writeTimeout > 0 {
+			err = mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout))
+			if err != nil {
+				return
+			}
+		}
+
+		// Write packet
+		n, err := mc.netConn.Write(data[:4+size])
+		if err == nil && n == 4+size {
+			mc.sequence++
+			if size != maxPacketSize {
+				return size, nil
+			}
+			pktLen -= size
+			data = data[size:]
+			continue
+		}
+
+		// Handle error
+		if err == nil { // n != len(data)
+			mc.cleanup()
+			mc.cfg.Logger.Print(ErrMalformPkt)
+		} else {
+			if cerr := mc.canceled.Value(); cerr != nil {
+				return 0, cerr
+			}
+			if n == 0 && pktLen == len(data)-4 {
+				// only for the first loop iteration when nothing was written yet
+				return 0, errBadConnNoWrite
+			}
+			mc.cleanup()
+			mc.cfg.Logger.Print(err)
+		}
+		return 0, ErrInvalidConn
+	}
 }

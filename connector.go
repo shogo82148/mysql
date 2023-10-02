@@ -137,9 +137,6 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		}
 	}
 
-	go mc.startReader()
-	go mc.startWriter()
-
 	mc.buf = newBuffer(mc.netConn)
 
 	// Set I/O timeouts
@@ -173,6 +170,11 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		mc.cleanup()
 		return nil, err
 	}
+
+	// mc.writeHandshakeResponsePacket might rewrite mc.netConn,
+	// so we need to start the reader/writer goroutines after it.
+	go mc.startReader()
+	go mc.startWriter()
 
 	// Handle response to auth packet, switch methods if possible
 	if err = mc.handleAuthResult(ctx, authData, plugin); err != nil {
