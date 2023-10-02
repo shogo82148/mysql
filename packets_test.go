@@ -115,8 +115,8 @@ func newRWMockConn(sequence uint8) (*mockConn, *mysqlConn) {
 		writeResult: make(chan writeResult),
 	}
 	mc.sequence.Store(uint32(sequence))
-	go mc.startReader()
-	go mc.startWriter()
+	go mc.readLoop()
+	go mc.writeLoop()
 	return conn, mc
 }
 

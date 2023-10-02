@@ -188,8 +188,8 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 
 	// mc.writeHandshakeResponsePacket might rewrite mc.netConn,
 	// so we need to start the reader/writer goroutines after it.
-	go mc.startReader()
-	go mc.startWriter()
+	go mc.readLoop()
+	go mc.writeLoop()
 
 	// Handle response to auth packet, switch methods if possible
 	if err = mc.handleAuthResult(ctx, authData, plugin); err != nil {

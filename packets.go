@@ -64,7 +64,7 @@ func (mc *mysqlConn) writePacket(ctx context.Context, data []byte) error {
 // Handshake Initialization Packet
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake
 func (mc *mysqlConn) readHandshakePacket() (data []byte, plugin string, err error) {
-	buf, err := mc.readPacketInReader()
+	buf, err := mc.readPacketSync()
 	if err != nil {
 		// for init we can rewrite this to ErrBadConn for sql.Driver to retry, since
 		// in connection initialization we don't risk retrying non-idempotent actions.
@@ -251,7 +251,7 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	// http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::SSLRequest
 	if mc.cfg.TLS != nil {
 		// Send TLS / SSL request packet
-		if _, err := mc.writePacketInWriter(data[:(4+4+1+23)+4]); err != nil {
+		if _, err := mc.writePacketSync(data[:(4+4+1+23)+4]); err != nil {
 			return err
 		}
 
@@ -293,7 +293,7 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	pos += copy(data[pos:], []byte(mc.connector.encodedAttributes))
 
 	// Send Auth packet
-	_, err = mc.writePacketInWriter(data[:pos])
+	_, err = mc.writePacketSync(data[:pos])
 	return err
 }
 
@@ -1327,9 +1327,9 @@ func (rows *binaryRows) readRow(ctx context.Context, dest []driver.Value) error 
 	return nil
 }
 
-func (mc *mysqlConn) startReader() {
+func (mc *mysqlConn) readLoop() {
 	for {
-		data, err := mc.readPacketInReader()
+		data, err := mc.readPacketSync()
 		select {
 		case mc.readResult <- readResult{data: data, err: err}:
 		case <-mc.closech:
@@ -1338,7 +1338,7 @@ func (mc *mysqlConn) startReader() {
 	}
 }
 
-func (mc *mysqlConn) readPacketInReader() (*buffer, error) {
+func (mc *mysqlConn) readPacketSync() (*buffer, error) {
 	buf := mc.connector.getBuffer()
 	buf.reset()
 
@@ -1388,7 +1388,7 @@ func (mc *mysqlConn) readPacketInReader() (*buffer, error) {
 	}
 }
 
-func (mc *mysqlConn) startWriter() {
+func (mc *mysqlConn) writeLoop() {
 	for {
 		var data []byte
 		select {
@@ -1397,7 +1397,7 @@ func (mc *mysqlConn) startWriter() {
 			return
 		}
 
-		n, err := mc.writePacketInWriter(data)
+		n, err := mc.writePacketSync(data)
 		select {
 		case mc.writeResult <- writeResult{n: n, err: err}:
 		case <-mc.closech:
@@ -1406,7 +1406,7 @@ func (mc *mysqlConn) startWriter() {
 	}
 }
 
-func (mc *mysqlConn) writePacketInWriter(data []byte) (n int, err error) {
+func (mc *mysqlConn) writePacketSync(data []byte) (n int, err error) {
 	pktLen := len(data) - 4
 
 	if pktLen > mc.maxAllowedPacket {
