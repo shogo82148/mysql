@@ -10,6 +10,7 @@ package mysql
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"database/sql/driver"
 	"encoding/binary"
@@ -92,89 +93,23 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 
 // Write packet buffer 'data'
 func (mc *mysqlConn) writePacket(data []byte) error {
-	pktLen := len(data) - 4
+	ctx := context.TODO()
 
-	if pktLen > mc.maxAllowedPacket {
-		return ErrPktTooLarge
-	}
-
-	// Perform a stale connection check. We only perform this check for
-	// the first query on a connection that has been checked out of the
-	// connection pool: a fresh connection from the pool is more likely
-	// to be stale, and it has not performed any previous writes that
-	// could cause data corruption, so it's safe to return ErrBadConn
-	// if the check fails.
-	if mc.reset {
-		mc.reset = false
-		conn := mc.netConn
-		if mc.rawConn != nil {
-			conn = mc.rawConn
-		}
-		var err error
-		if mc.cfg.CheckConnLiveness {
-			if mc.cfg.ReadTimeout != 0 {
-				err = conn.SetReadDeadline(time.Now().Add(mc.cfg.ReadTimeout))
-			}
-			if err == nil {
-				err = connCheck(conn)
-			}
-		}
-		if err != nil {
-			mc.cfg.Logger.Print("closing bad idle connection: ", err)
-			mc.Close()
-			return driver.ErrBadConn
-		}
-	}
-
-	for {
-		var size int
-		if pktLen >= maxPacketSize {
-			data[0] = 0xff
-			data[1] = 0xff
-			data[2] = 0xff
-			size = maxPacketSize
-		} else {
-			data[0] = byte(pktLen)
-			data[1] = byte(pktLen >> 8)
-			data[2] = byte(pktLen >> 16)
-			size = pktLen
-		}
-		data[3] = mc.sequence
-
-		// Write packet
-		if mc.writeTimeout > 0 {
-			if err := mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout)); err != nil {
-				return err
-			}
-		}
-
-		n, err := mc.netConn.Write(data[:4+size])
-		if err == nil && n == 4+size {
-			mc.sequence++
-			if size != maxPacketSize {
-				return nil
-			}
-			pktLen -= size
-			data = data[size:]
-			continue
-		}
-
-		// Handle error
-		if err == nil { // n != len(data)
-			mc.cleanup()
-			mc.cfg.Logger.Print(ErrMalformPkt)
-		} else {
-			if cerr := mc.canceled.Value(); cerr != nil {
-				return cerr
-			}
-			if n == 0 && pktLen == len(data)-4 {
-				// only for the first loop iteration when nothing was written yet
-				return errBadConnNoWrite
-			}
-			mc.cleanup()
-			mc.cfg.Logger.Print(err)
-		}
+	select {
+	case mc.writeCh <- data:
+	case <-mc.closech:
 		return ErrInvalidConn
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	select {
+	case err := <-mc.writeDone:
+		return err
+	case <-mc.closech:
+		return ErrInvalidConn
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
@@ -1434,4 +1369,109 @@ func (rows *binaryRows) readRow(dest []driver.Value) error {
 	}
 
 	return nil
+}
+
+func (mc *mysqlConn) writeLoop() {
+	for {
+		var data []byte
+		select {
+		case data = <-mc.writeCh:
+		case <-mc.closech:
+			return
+		}
+
+		err := mc.writePacketSync(data)
+		select {
+		case mc.writeDone <- err:
+		case <-mc.closech:
+			return
+		}
+	}
+}
+
+func (mc *mysqlConn) writePacketSync(data []byte) error {
+	pktLen := len(data) - 4
+
+	if pktLen > mc.maxAllowedPacket {
+		return ErrPktTooLarge
+	}
+
+	// Perform a stale connection check. We only perform this check for
+	// the first query on a connection that has been checked out of the
+	// connection pool: a fresh connection from the pool is more likely
+	// to be stale, and it has not performed any previous writes that
+	// could cause data corruption, so it's safe to return ErrBadConn
+	// if the check fails.
+	if mc.reset {
+		mc.reset = false
+		conn := mc.netConn
+		if mc.rawConn != nil {
+			conn = mc.rawConn
+		}
+		var err error
+		if mc.cfg.CheckConnLiveness {
+			if mc.cfg.ReadTimeout != 0 {
+				err = conn.SetReadDeadline(time.Now().Add(mc.cfg.ReadTimeout))
+			}
+			if err == nil {
+				err = connCheck(conn)
+			}
+		}
+		if err != nil {
+			mc.cfg.Logger.Print("closing bad idle connection: ", err)
+			mc.Close()
+			return driver.ErrBadConn
+		}
+	}
+
+	for {
+		var size int
+		if pktLen >= maxPacketSize {
+			data[0] = 0xff
+			data[1] = 0xff
+			data[2] = 0xff
+			size = maxPacketSize
+		} else {
+			data[0] = byte(pktLen)
+			data[1] = byte(pktLen >> 8)
+			data[2] = byte(pktLen >> 16)
+			size = pktLen
+		}
+		data[3] = mc.sequence
+
+		// Write packet
+		if mc.writeTimeout > 0 {
+			if err := mc.netConn.SetWriteDeadline(time.Now().Add(mc.writeTimeout)); err != nil {
+				return err
+			}
+		}
+
+		n, err := mc.netConn.Write(data[:4+size])
+		if err == nil && n == 4+size {
+			mc.sequence++
+			if size != maxPacketSize {
+				return nil
+			}
+			pktLen -= size
+			data = data[size:]
+			continue
+		}
+
+		// Handle error
+		if err == nil { // n != len(data)
+			mc.cleanup()
+			mc.cfg.Logger.Print(ErrMalformPkt)
+		} else {
+			if cerr := mc.canceled.Value(); cerr != nil {
+				return cerr
+			}
+			if n == 0 && pktLen == len(data)-4 {
+				// only for the first loop iteration when nothing was written yet
+				return errBadConnNoWrite
+			}
+			mc.cleanup()
+			mc.cfg.Logger.Print(err)
+		}
+		return ErrInvalidConn
+	}
 }

@@ -37,12 +37,14 @@ type mysqlConn struct {
 	reset            bool // set when the Go SQL package calls ResetSession
 
 	// for context support (Go 1.8+)
-	watching bool
-	watcher  chan<- context.Context
-	closech  chan struct{}
-	finished chan<- struct{}
-	canceled atomicError // set non-nil if conn is canceled
-	closed   atomicBool  // set when conn is closed, before closech is closed
+	watching  bool
+	watcher   chan<- context.Context
+	closech   chan struct{}
+	finished  chan<- struct{}
+	canceled  atomicError // set non-nil if conn is canceled
+	closed    atomicBool  // set when conn is closed, before closech is closed
+	writeCh   chan []byte // buffered channel for writeCommandPacket
+	writeDone chan error
 }
 
 // Handles parameters set in DSN after the connection is established

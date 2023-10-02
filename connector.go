@@ -73,6 +73,8 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		closech:          make(chan struct{}),
 		cfg:              c.cfg,
 		connector:        c,
+		writeCh:          make(chan []byte, 1),
+		writeDone:        make(chan error),
 	}
 	mc.parseTime = mc.cfg.ParseTime
 
@@ -92,7 +94,6 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		nd := net.Dialer{Timeout: mc.cfg.Timeout}
 		mc.netConn, err = nd.DialContext(ctx, mc.cfg.Net, mc.cfg.Addr)
 	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +104,8 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 			c.cfg.Logger.Print(err)
 		}
 	}
+
+	go mc.writeLoop()
 
 	// Call startWatcher for context support (From Go 1.8)
 	mc.startWatcher()
