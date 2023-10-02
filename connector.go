@@ -16,6 +16,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
+)
+
+var (
+	// aLongTimeAgo is a non-zero time, far in the past, used for
+	// immediate cancellation of dials.
+	aLongTimeAgo = time.Unix(1, 0)
 )
 
 type connector struct {
@@ -84,6 +91,23 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		writeResult: make(chan writeResult),
 	}
 	mc.parseTime = mc.cfg.ParseTime
+
+	// cancel the handshake if the context is canceled.
+	doneHandshake := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				mc.netConn.SetDeadline(aLongTimeAgo)
+			case <-doneHandshake:
+				return
+			}
+		}
+	}()
+	defer func() {
+		doneHandshake <- struct{}{}
+		close(doneHandshake)
+	}()
 
 	// Connect to Server
 	dialsLock.RLock()
