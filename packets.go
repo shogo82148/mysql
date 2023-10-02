@@ -317,7 +317,7 @@ func (mc *mysqlConn) writeAuthSwitchPacket(ctx context.Context, authData []byte)
 
 func (mc *mysqlConn) writeCommandPacket(ctx context.Context, command byte) error {
 	// Reset Packet Sequence
-	mc.sequence = 0
+	mc.sequence.Store(0)
 
 	data, err := mc.buf.takeSmallBuffer(4 + 1)
 	if err != nil {
@@ -335,7 +335,7 @@ func (mc *mysqlConn) writeCommandPacket(ctx context.Context, command byte) error
 
 func (mc *mysqlConn) writeCommandPacketStr(ctx context.Context, command byte, arg string) error {
 	// Reset Packet Sequence
-	mc.sequence = 0
+	mc.sequence.Store(0)
 
 	pktLen := 1 + len(arg)
 	data, err := mc.buf.takeBuffer(pktLen + 4)
@@ -357,7 +357,7 @@ func (mc *mysqlConn) writeCommandPacketStr(ctx context.Context, command byte, ar
 
 func (mc *mysqlConn) writeCommandPacketUint32(ctx context.Context, command byte, arg uint32) error {
 	// Reset Packet Sequence
-	mc.sequence = 0
+	mc.sequence.Store(0)
 
 	data, err := mc.buf.takeSmallBuffer(4 + 1 + 4)
 	if err != nil {
@@ -841,7 +841,7 @@ func (stmt *mysqlStmt) writeCommandLongData(ctx context.Context, paramID int, ar
 			pktLen = dataOffset + argLen
 		}
 
-		stmt.mc.sequence = 0
+		stmt.mc.sequence.Store(0)
 		// Add command byte [1 byte]
 		data[4] = comStmtSendLongData
 
@@ -866,7 +866,7 @@ func (stmt *mysqlStmt) writeCommandLongData(ctx context.Context, paramID int, ar
 	}
 
 	// Reset Packet Sequence
-	stmt.mc.sequence = 0
+	stmt.mc.sequence.Store(0)
 	return nil
 }
 
@@ -891,7 +891,7 @@ func (stmt *mysqlStmt) writeExecutePacket(ctx context.Context, args []driver.Val
 	}
 
 	// Reset packet-sequence
-	mc.sequence = 0
+	mc.sequence.Store(0)
 
 	var data []byte
 	var err error
@@ -1340,14 +1340,15 @@ func (mc *mysqlConn) readPacketInReader() ([]byte, error) {
 		pktLen := int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
 
 		// check packet sync [8 bit]
-		if header[3] != mc.sequence {
+		sequence := mc.sequence.Load()
+		if header[3] != uint8(sequence) {
 			mc.Close()
-			if header[3] > mc.sequence {
+			if header[3] > uint8(sequence) {
 				return nil, ErrPktSyncMul
 			}
 			return nil, ErrPktSync
 		}
-		mc.sequence++
+		mc.sequence.Add(1)
 
 		// packets with length 0 terminate a previous packet which is a
 		// multiple of (2^24)-1 bytes long
@@ -1420,7 +1421,7 @@ func (mc *mysqlConn) writePacketInWriter(data []byte) (n int, err error) {
 			data[2] = byte(pktLen >> 16)
 			size = pktLen
 		}
-		data[3] = mc.sequence
+		data[3] = byte(mc.sequence.Load())
 
 		// set timeout
 		if mc.writeTimeout > 0 {
@@ -1433,7 +1434,7 @@ func (mc *mysqlConn) writePacketInWriter(data []byte) (n int, err error) {
 		// Write packet
 		n, err := mc.netConn.Write(data[:4+size])
 		if err == nil && n == 4+size {
-			mc.sequence++
+			mc.sequence.Add(1)
 			if size != maxPacketSize {
 				return size, nil
 			}

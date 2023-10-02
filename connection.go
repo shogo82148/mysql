@@ -17,6 +17,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -42,7 +43,7 @@ type mysqlConn struct {
 	writeTimeout     time.Duration
 	flags            clientFlag
 	status           statusFlag
-	sequence         uint8
+	sequence         atomic.Uint32
 	parseTime        bool
 	reset            bool // set when the Go SQL package calls ResetSession
 
