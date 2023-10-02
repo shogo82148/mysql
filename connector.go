@@ -16,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,6 +29,7 @@ var (
 type connector struct {
 	cfg               *Config // immutable private copy.
 	encodedAttributes string  // Encoded connection attributes.
+	pool              sync.Pool
 }
 
 func encodeConnectionAttributes(textAttributes string) string {
@@ -65,7 +67,20 @@ func newConnector(cfg *Config) (*connector, error) {
 	return &connector{
 		cfg:               cfg,
 		encodedAttributes: encodedAttributes,
+		pool: sync.Pool{
+			New: newBuffer,
+		},
 	}, nil
+}
+
+func (c *connector) getBuffer() *buffer {
+	return c.pool.Get().(*buffer)
+}
+
+func (c *connector) putBuffer(buf *buffer) {
+	if buf != nil && len(buf.buf) <= maxCachedBufSize {
+		c.pool.Put(buf)
+	}
 }
 
 // Connect implements driver.Connector interface.
@@ -85,7 +100,7 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		readResult: make(chan readResult, 1),
 
 		// buffered channel to serialize writes to the underlying net.Conn
-		writeCh: make(chan []byte, 1),
+		writeRequest: make(chan []byte, 1),
 
 		// it is used for syncing write operations; it must not be buffered.
 		writeResult: make(chan writeResult),
@@ -137,10 +152,10 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		}
 	}
 
-	mc.buf = newBuffer(mc.netConn)
+	mc.bufio = newBufio(mc.netConn)
 
 	// Set I/O timeouts
-	mc.buf.timeout = mc.cfg.ReadTimeout
+	mc.bufio.timeout = mc.cfg.ReadTimeout
 	mc.writeTimeout = mc.cfg.WriteTimeout
 
 	// Reading Handshake Initialization Packet

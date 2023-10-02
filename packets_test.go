@@ -101,7 +101,7 @@ func newRWMockConn(sequence uint8) (*mockConn, *mysqlConn) {
 		panic(err)
 	}
 	mc := &mysqlConn{
-		buf:              newBuffer(conn),
+		bufio:            newBufio(conn),
 		cfg:              connector.cfg,
 		connector:        connector,
 		netConn:          conn,
@@ -109,7 +109,7 @@ func newRWMockConn(sequence uint8) (*mockConn, *mysqlConn) {
 		maxAllowedPacket: defaultMaxAllowedPacket,
 
 		// buffered channel to serialize writes to the underlying net.Conn
-		writeCh: make(chan []byte, 1),
+		writeRequest: make(chan []byte, 1),
 
 		// it is used for syncing write operations; it must not be buffered.
 		writeResult: make(chan writeResult),
@@ -123,23 +123,23 @@ func newRWMockConn(sequence uint8) (*mockConn, *mysqlConn) {
 func TestReadPacketSingleByte(t *testing.T) {
 	t.Skip("TODO: fix this test")
 
-	conn := new(mockConn)
-	mc := &mysqlConn{
-		buf: newBuffer(conn),
-	}
+	// conn := new(mockConn)
+	// mc := &mysqlConn{
+	// 	bufio: newBufio(conn),
+	// }
 
-	conn.data = []byte{0x01, 0x00, 0x00, 0x00, 0xff}
-	conn.maxReads = 1
-	packet, err := mc.readPacket(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(packet) != 1 {
-		t.Fatalf("unexpected packet length: expected %d, got %d", 1, len(packet))
-	}
-	if packet[0] != 0xff {
-		t.Fatalf("unexpected packet content: expected %x, got %x", 0xff, packet[0])
-	}
+	// conn.data = []byte{0x01, 0x00, 0x00, 0x00, 0xff}
+	// conn.maxReads = 1
+	// packet, err := mc.readPacket(context.Background())
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// if len(packet) != 1 {
+	// 	t.Fatalf("unexpected packet length: expected %d, got %d", 1, len(packet))
+	// }
+	// if packet[0] != 0xff {
+	// 	t.Fatalf("unexpected packet content: expected %x, got %x", 0xff, packet[0])
+	// }
 }
 
 func TestReadPacketWrongSequenceID(t *testing.T) {

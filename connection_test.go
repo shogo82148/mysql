@@ -19,7 +19,7 @@ import (
 
 func TestInterpolateParams(t *testing.T) {
 	mc := &mysqlConn{
-		buf:              newBuffer(nil),
+		bufio:            newBufio(nil),
 		maxAllowedPacket: maxPacketSize,
 		cfg: &Config{
 			InterpolateParams: true,
@@ -39,7 +39,7 @@ func TestInterpolateParams(t *testing.T) {
 
 func TestInterpolateParamsJSONRawMessage(t *testing.T) {
 	mc := &mysqlConn{
-		buf:              newBuffer(nil),
+		bufio:            newBufio(nil),
 		maxAllowedPacket: maxPacketSize,
 		cfg: &Config{
 			InterpolateParams: true,
@@ -66,7 +66,7 @@ func TestInterpolateParamsJSONRawMessage(t *testing.T) {
 
 func TestInterpolateParamsTooManyPlaceholders(t *testing.T) {
 	mc := &mysqlConn{
-		buf:              newBuffer(nil),
+		bufio:            newBufio(nil),
 		maxAllowedPacket: maxPacketSize,
 		cfg: &Config{
 			InterpolateParams: true,
@@ -83,7 +83,7 @@ func TestInterpolateParamsTooManyPlaceholders(t *testing.T) {
 // https://github.com/go-sql-driver/mysql/pull/490
 func TestInterpolateParamsPlaceholderInString(t *testing.T) {
 	mc := &mysqlConn{
-		buf:              newBuffer(nil),
+		bufio:            newBufio(nil),
 		maxAllowedPacket: maxPacketSize,
 		cfg: &Config{
 			InterpolateParams: true,
@@ -99,7 +99,7 @@ func TestInterpolateParamsPlaceholderInString(t *testing.T) {
 
 func TestInterpolateParamsUint64(t *testing.T) {
 	mc := &mysqlConn{
-		buf:              newBuffer(nil),
+		bufio:            newBufio(nil),
 		maxAllowedPacket: maxPacketSize,
 		cfg: &Config{
 			InterpolateParams: true,
@@ -159,7 +159,7 @@ func TestPingMarkBadConnection(t *testing.T) {
 	nc := badConnection{err: errors.New("boom")}
 	ms := &mysqlConn{
 		netConn:          nc,
-		buf:              newBuffer(nc),
+		bufio:            newBufio(nc),
 		maxAllowedPacket: defaultMaxAllowedPacket,
 	}
 
@@ -176,7 +176,7 @@ func TestPingErrInvalidConn(t *testing.T) {
 	nc := badConnection{err: errors.New("failed to write"), n: 10}
 	ms := &mysqlConn{
 		netConn:          nc,
-		buf:              newBuffer(nc),
+		bufio:            newBufio(nc),
 		maxAllowedPacket: defaultMaxAllowedPacket,
 		closech:          make(chan struct{}),
 		cfg:              NewConfig(),

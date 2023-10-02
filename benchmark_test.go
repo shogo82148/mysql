@@ -223,7 +223,7 @@ func BenchmarkInterpolation(b *testing.B) {
 		},
 		maxAllowedPacket: maxPacketSize,
 		maxWriteSize:     maxPacketSize - 1,
-		buf:              newBuffer(nil),
+		bufio:            newBufio(nil),
 	}
 
 	args := []driver.Value{

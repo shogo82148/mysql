@@ -114,7 +114,7 @@ func (rows *mysqlRows) Close() (err error) {
 	// has been called until it returns false), `rows.mc` will be nil
 	// by the time the user calls `(*Rows).Close`, so we won't reach this
 	// see: https://github.com/golang/go/commit/651ddbdb5056ded455f47f9c494c67b389622a47
-	mc.buf.flip()
+	mc.bufio.flip()
 
 	// Remove unread packets from stream
 	if !rows.rs.done {

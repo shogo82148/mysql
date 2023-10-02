@@ -9,21 +9,51 @@
 package mysql
 
 import (
+	"io"
 	"net"
 	"time"
 )
 
 const defaultBufSize = 4 * 1024
 
-// const maxCachedBufSize = 256 * 1024
+const maxCachedBufSize = 256 * 1024
 
-// A buffer which is used for both reading and writing.
+type buffer struct {
+	buf []byte
+}
+
+func newBuffer() any {
+	return &buffer{
+		buf: make([]byte, defaultBufSize),
+	}
+}
+
+func (b *buffer) reset() {
+	b.buf = b.buf[:0]
+}
+
+func (b *buffer) len() int {
+	return len(b.buf)
+}
+
+func (b *buffer) readN(r io.Reader, n int) error {
+	l := len(b.buf)
+	if cap(b.buf) < l+n {
+		b.buf = append(b.buf, make([]byte, n)...)
+	}
+
+	b.buf = b.buf[:l+n]
+	_, err := io.ReadFull(r, b.buf[l:l+n])
+	return err
+}
+
+// A bufio which is used for both reading and writing.
 // This is possible since communication on each connection is synchronous.
 // In other words, we can't write and read simultaneously on the same connection.
-// The buffer is similar to bufio.Reader / Writer but zero-copy-ish
+// The bufio is similar to bufio.Reader / Writer but zero-copy-ish
 // Also highly optimized for this particular use case.
-// This buffer is backed by two byte slices in a double-buffering scheme
-type buffer struct {
+// This bufio is backed by two byte slices in a double-buffering scheme
+type bufio struct {
 	buf     []byte // buf is a byte buffer who's length and capacity are equal.
 	nc      net.Conn
 	length  int
@@ -32,10 +62,10 @@ type buffer struct {
 	flipcnt uint      // flipccnt is the current buffer counter for double-buffering
 }
 
-// newBuffer allocates and returns a new buffer.
-func newBuffer(nc net.Conn) buffer {
+// newBufio allocates and returns a new buffer.
+func newBufio(nc net.Conn) bufio {
 	fg := make([]byte, defaultBufSize)
-	return buffer{
+	return bufio{
 		buf:  fg,
 		nc:   nc,
 		dbuf: [2][]byte{fg, nil},
@@ -45,7 +75,7 @@ func newBuffer(nc net.Conn) buffer {
 // flip replaces the active buffer with the background buffer
 // this is a delayed flip that simply increases the buffer counter;
 // the actual flip will be performed the next time we call `buffer.fill`
-func (b *buffer) flip() {
+func (b *bufio) flip() {
 	b.flipcnt += 1
 }
 
@@ -53,7 +83,7 @@ func (b *buffer) flip() {
 // If possible, a slice from the existing buffer is returned.
 // Otherwise a bigger buffer is made.
 // Only one buffer (total) can be used at a time.
-func (b *buffer) takeBuffer(length int) ([]byte, error) {
+func (b *bufio) takeBuffer(length int) ([]byte, error) {
 	if b.length > 0 {
 		return nil, ErrBusyBuffer
 	}
@@ -75,7 +105,7 @@ func (b *buffer) takeBuffer(length int) ([]byte, error) {
 // takeSmallBuffer is shortcut which can be used if length is
 // known to be smaller than defaultBufSize.
 // Only one buffer (total) can be used at a time.
-func (b *buffer) takeSmallBuffer(length int) ([]byte, error) {
+func (b *bufio) takeSmallBuffer(length int) ([]byte, error) {
 	if b.length > 0 {
 		return nil, ErrBusyBuffer
 	}
@@ -86,7 +116,7 @@ func (b *buffer) takeSmallBuffer(length int) ([]byte, error) {
 // This can be used if the necessary buffer size is unknown.
 // cap and len of the returned buffer will be equal.
 // Only one buffer (total) can be used at a time.
-func (b *buffer) takeCompleteBuffer() ([]byte, error) {
+func (b *bufio) takeCompleteBuffer() ([]byte, error) {
 	if b.length > 0 {
 		return nil, ErrBusyBuffer
 	}
@@ -94,7 +124,7 @@ func (b *buffer) takeCompleteBuffer() ([]byte, error) {
 }
 
 // store stores buf, an updated buffer, if its suitable to do so.
-func (b *buffer) store(buf []byte) error {
+func (b *bufio) store(buf []byte) error {
 	if b.length > 0 {
 		return ErrBusyBuffer
 	} else if cap(buf) <= maxPacketSize && cap(buf) > cap(b.buf) {

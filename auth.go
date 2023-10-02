@@ -362,7 +362,7 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 					pubKey := mc.cfg.pubKey
 					if pubKey == nil {
 						// request public key from server
-						data, err := mc.buf.takeSmallBuffer(4 + 1)
+						data, err := mc.bufio.takeSmallBuffer(4 + 1)
 						if err != nil {
 							return err
 						}
@@ -372,10 +372,12 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 							return err
 						}
 
-						if data, err = mc.readPacket(ctx); err != nil {
+						buf, err := mc.readPacket(ctx)
+						if err != nil {
 							return err
 						}
 
+						data = buf.buf
 						if data[0] != iAuthMoreData {
 							return fmt.Errorf("unexpected resp from server for caching_sha2_password perform full authentication")
 						}
@@ -390,6 +392,7 @@ func (mc *mysqlConn) handleAuthResult(ctx context.Context, oldAuthData []byte, p
 							return err
 						}
 						pubKey = pkix.(*rsa.PublicKey)
+						mc.connector.putBuffer(buf)
 					}
 
 					// send encrypted password
