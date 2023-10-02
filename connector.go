@@ -105,8 +105,6 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		}
 	}
 
-	go mc.writeLoop()
-
 	// Call startWatcher for context support (From Go 1.8)
 	mc.startWatcher()
 	if err := mc.watchCancel(ctx); err != nil {
@@ -148,6 +146,10 @@ func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
 		mc.cleanup()
 		return nil, err
 	}
+
+	// mc.writeHandshakeResponsePacket might re-write mc.netConn, so we need to
+	// start the write loop after it.
+	go mc.writeLoop()
 
 	// Handle response to auth packet, switch methods if possible
 	if err = mc.handleAuthResult(authData, plugin); err != nil {

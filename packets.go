@@ -306,7 +306,7 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	// http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::SSLRequest
 	if mc.cfg.TLS != nil {
 		// Send TLS / SSL request packet
-		if err := mc.writePacket(data[:(4+4+1+23)+4]); err != nil {
+		if err := mc.writePacketSync(data[:(4+4+1+23)+4]); err != nil {
 			return err
 		}
 
@@ -348,7 +348,7 @@ func (mc *mysqlConn) writeHandshakeResponsePacket(authResp []byte, plugin string
 	pos += copy(data[pos:], []byte(mc.connector.encodedAttributes))
 
 	// Send Auth packet
-	return mc.writePacket(data[:pos])
+	return mc.writePacketSync(data[:pos])
 }
 
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchResponse
